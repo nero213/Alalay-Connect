@@ -1,7 +1,7 @@
 import { validationResult } from "express-validator";
 import bcrypt from "bcrypt";
 import { pool } from "../config/db.js";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
 export const userLogin = async (req, res) => {
   try {
@@ -26,7 +26,7 @@ export const userLogin = async (req, res) => {
       });
     }
 
-    const token = 
+    const token = jwt.sign({});
   } catch (err) {
     res.status(500).json({ message: "failed" });
   }

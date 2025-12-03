@@ -14,10 +14,10 @@ export const userRegister = async (req, res) => {
     // this is used to try and see if the phone number is taken
     if (email && phone) {
       const [existing] = await pool.query(
-        "SELECT 1 FROM USERS WHERE email = ? AND phone = ? LIMIT 1",
+        "SELECT * FROM USERS WHERE email = ? AND phone = ? LIMIT 1",
         [email, phone]
       );
-
+      
       if (existing.length > 0) {
         return res
           .status(400)
