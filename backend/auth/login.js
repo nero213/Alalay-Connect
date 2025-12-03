@@ -20,13 +20,35 @@ export const userLogin = async (req, res) => {
       return res.status(401).json({ message: "Incorrect password" });
     }
 
-    if (found.status !== "active") {
-      return res.status(403).json({
-        message: `status is currently ${found.status}.`,
-      });
-    }
+    // if (found.status !== "active") {
+    //   return res.status(403).json({
+    //     message: `status is currently ${found.status}.`,
+    //   });
+    // }
 
-    const token = jwt.sign({});
+    const jwtPayload = {
+      name: found.firstName,
+      lastanme: found.lastName,
+      email: found.email,
+      role: found.role,
+    };
+
+    const token = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES,
+    });
+
+    return res
+      .status(200)
+      .json({
+        message: "successful",
+        token,
+        user: {
+          username: found.firstName,
+          lastName: found.lastName,
+          email: found.email,
+          role: found.role,
+        },
+      });
   } catch (err) {
     res.status(500).json({ message: "failed" });
   }

@@ -7,17 +7,20 @@ import { v4 as uuidv4 } from "uuid";
 export const userRegister = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    // this is to try and help specify the message
+    const errorMessages = errors.array().map(error => error.msg);
+    return res.status(400).json({ errors: errorMessages });
   }
   try {
-    const { email, firstName, lastName, password, phone, role } = req.body;
+    const { email, firstName, lastName, password, phone, role , } = req.body;
     // this is used to try and see if the phone number is taken
-    if (email && phone) {
+    if (email || phone) {
       const [existing] = await pool.query(
-        "SELECT * FROM USERS WHERE email = ? AND phone = ? LIMIT 1",
+        "SELECT * FROM USERS WHERE email = ? OR phone = ? LIMIT 1",
         [email, phone]
       );
-      
+
+
       if (existing.length > 0) {
         return res
           .status(400)
@@ -31,7 +34,6 @@ export const userRegister = async (req, res) => {
     const newUuid = uuidv4();
 
     // this is now to try and insert values into the database
-    const status = "pending";
     await pool.query(
       `INSERT INTO users (uuid, email, firstName, lastName, password, phone, role, status) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -43,15 +45,13 @@ export const userRegister = async (req, res) => {
         hashedPassword,
         phone || null,
         role || "resident",
-        status,
+        "pending"
       ]
     );
-    //  this is only used for testing 
-      // const [users] = await pool.query("SELECT * FROM USERS WHERE email = ? ", [
-      //   email,
-      // ]);
-    // if succesful send a respond of it being a success
-    res.send(users);
+    //  this is only used for testing
+    // const [users] = await pool.query("SELECT * FROM USERS WHERE email = ? ", [
+    //   email,
+    // ]);
     res.status(201).json({ message: "succesful registration" });
   } catch (err) {
     res.status(500).json({ Message: "something went wrong" });

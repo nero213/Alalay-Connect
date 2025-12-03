@@ -1,6 +1,9 @@
 import express from "express";
 import authRoutes from "./routes/auth.js";
 import rateLimit from "express-rate-limit";
+import "dotenv/config"
+
+
 
 const app = express();
 const PORT = process.env.PORT_NUMBER || 3000;
