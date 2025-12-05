@@ -1,0 +1,1 @@
+npm install express bcrypt cors dotenv express-rate-limit express-validator jsonwebtoken mysql2 uuid
