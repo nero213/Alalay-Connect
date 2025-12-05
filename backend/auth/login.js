@@ -11,7 +11,7 @@ export const userLogin = async (req, res) => {
       [email]
     );
     if (user.length === 0) {
-      res.status(400).json({ message: "user not found" });
+      return res.status(400).json({ message: "user not found" });
     }
     const found = user[0];
     const isMatch = await bcrypt.compare(password, found.password);
@@ -27,8 +27,8 @@ export const userLogin = async (req, res) => {
     // }
 
     const jwtPayload = {
-      name: found.firstName,
-      lastanme: found.lastName,
+      firstName: found.firstName,
+      lastName: found.lastName,
       email: found.email,
       role: found.role,
     };
@@ -37,19 +37,19 @@ export const userLogin = async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES,
     });
 
-    return res
-      .status(200)
-      .json({
-        message: "successful",
-        token,
-        user: {
-          username: found.firstName,
-          lastName: found.lastName,
-          email: found.email,
-          role: found.role,
-        },
-      });
+    return res.status(200).json({
+      message: "successful",
+      token,
+      user: {
+        username: found.firstName,
+        lastName: found.lastName,
+        email: found.email,
+        role: found.role,
+      },
+    });
   } catch (err) {
-    res.status(500).json({ message: "failed" });
+    res
+      .status(500)
+      .json({ message: "something wrong with the server", error: err.message });
   }
 };

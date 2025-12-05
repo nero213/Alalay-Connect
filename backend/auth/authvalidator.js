@@ -10,9 +10,10 @@ export const registerValidators = [
   body("lastName").notEmpty().withMessage("lastName is required"),
   body("password")
     .notEmpty()
+    .withMessage("password is required")
     .isLength({ min: 6 })
     .isStrongPassword()
-    .withMessage("password is required"),
+    .withMessage("Password is to weak"),
   body("phone").optional().isMobilePhone().withMessage("phone is required"),
   body("role").optional().isIn(["resident", "skilled", "admin"]),
 ];

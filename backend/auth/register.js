@@ -9,7 +9,7 @@ export const userRegister = async (req, res) => {
   if (!errors.isEmpty()) {
     // this is to try and help specify the message
     const errorMessages = errors.array().map(error => error.msg);
-    return res.status(400).json({ errors: errorMessages });
+    return res.status(400).json({ Error: errorMessages });
   }
   try {
     const { email, firstName, lastName, password, phone, role , } = req.body;

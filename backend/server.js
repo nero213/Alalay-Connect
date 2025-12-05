@@ -1,12 +1,21 @@
 import express from "express";
 import authRoutes from "./routes/auth.js";
 import rateLimit from "express-rate-limit";
-import "dotenv/config"
-
-
+import "dotenv/config";
+import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT_NUMBER || 3000;
+
+const corsOption = {
+  origin: "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  Credentials: true,
+};
+app.use(cors(corsOption));
+
+app.use(express.json());
+
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
