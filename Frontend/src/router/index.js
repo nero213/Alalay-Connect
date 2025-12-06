@@ -1,6 +1,7 @@
 import profileView from '@/components/views/profile.view.vue'
 import loginComponents from '@/components/auth/login.components.vue'
 import { createRouter, createWebHistory } from 'vue-router'
+import registrationComponents from '@/components/auth/registration.components.vue'
 
 const routes = [
   {
@@ -13,6 +14,11 @@ const routes = [
     name: 'profile',
     component: profileView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/register',
+    name: 'profile',
+    component: registrationComponents,
   },
 ]
 
