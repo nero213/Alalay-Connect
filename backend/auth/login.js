@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-import { validationResult } from "express-validator";
-=======
->>>>>>> origin/backend
 import bcrypt from "bcrypt";
 import { pool } from "../config/db.js";
 import jwt from "jsonwebtoken";
