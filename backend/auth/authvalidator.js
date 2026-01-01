@@ -14,7 +14,23 @@ export const registerValidators = [
     .isLength({ min: 6 })
     .isStrongPassword()
     .withMessage("Password is to weak"),
-  body("phone").optional().isMobilePhone().withMessage("phone is required"),
+  body("phone")
+    .matches(/^(09|\+639|639)\d{9}$/)
+    .withMessage("Invalid Philippine phone number format.")
+    .customSanitizer((value) => {
+      // +639XXXXXXXXX → 09XXXXXXXXX
+      if (value.startsWith("+639")) {
+        return "0" + value.slice(3); 
+      }
+
+      
+      if (value.startsWith("639")) {
+        return "0" + value.slice(2); 
+      }
+
+      // already starting with 09
+      return value;
+    }),
   body("role").optional().isIn(["resident", "skilled", "admin"]),
 ];
 

@@ -8,25 +8,24 @@ export const userRegister = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     // this is to try and help specify the message
-    const errorMessages = errors.array().map(error => error.msg);
-    return res.status(400).json({ Error: errorMessages });
+    const errorMessages = errors.array().map((error) => error.msg);
+    return res.status(400).json({ message: errorMessages });
   }
   try {
-    const { email, firstName, lastName, password, phone, role , } = req.body;
+    const { email, firstName, lastName, password, phone, role } = req.body;
     // this is used to try and see if the phone number is taken
-    if (email || phone) {
-      const [existing] = await pool.query(
-        "SELECT * FROM USERS WHERE email = ? OR phone = ? LIMIT 1",
-        [email, phone]
-      );
 
+    const [existing] = await pool.query(
+      "SELECT * FROM USERS WHERE email = ? OR phone = ? LIMIT 1",
+      [email, phone]
+    );
 
-      if (existing.length > 0) {
-        return res
-          .status(400)
-          .json({ message: "phone number or email is already taken" });
-      }
+    if (existing.length > 0) {
+      return res
+        .status(400)
+        .json({ message: "phone number or email is already taken" });
     }
+
     // this is done to hashed the password for more security
     const saltRounds = 10;
     const salt = await bcrypt.genSalt(saltRounds);
@@ -45,7 +44,7 @@ export const userRegister = async (req, res) => {
         hashedPassword,
         phone || null,
         role || "resident",
-        "pending"
+        "pending",
       ]
     );
     //  this is only used for testing

@@ -1,4 +1,3 @@
-import { validationResult } from "express-validator";
 import bcrypt from "bcrypt";
 import { pool } from "../config/db.js";
 import jwt from "jsonwebtoken";
