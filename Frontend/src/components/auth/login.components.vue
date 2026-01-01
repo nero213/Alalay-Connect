@@ -14,6 +14,10 @@ const successMessage = ref('');
 const errorMessage = ref('');
 const loading = ref(false)
 
+const loginWithFacebook = () => {
+    window.location.href = "http://192.168.1.83:3000/auth/facebook/callback"
+}
+
 const userLogin = async () => {
     successMessage.value = '';
     errorMessage.value = '';
@@ -57,6 +61,7 @@ const userLogin = async () => {
                 <label>Password</label>
                 <input v-model="form.password" type="password" required />
             </div>
+            <button @click="loginWithFacebook"> Login with Facebook</button>
 
             <button type="submit">Login</button>
 
