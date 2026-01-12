@@ -44,7 +44,7 @@ export const userRegister = async (req, res) => {
         hashedPassword,
         phone || null,
         role || "resident",
-        "pending",
+        "active",
       ]
     );
     //  this is only used for testing

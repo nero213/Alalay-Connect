@@ -15,7 +15,7 @@ const errorMessage = ref('');
 const loading = ref(false)
 
 const loginWithFacebook = () => {
-    window.location.href = "http://192.168.1.83:3000/auth/facebook/callback"
+    window.location.href = "http://localhost:3000/auth/facebook"
 }
 
 const userLogin = async () => {
