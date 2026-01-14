@@ -1,11 +1,12 @@
 import express from "express";
-import authRoutes from "./routes/auth.js";
+import authRoutes from "./routes/auth.routes.js";
 import rateLimit from "express-rate-limit";
 import "dotenv/config";
 import cors from "cors";
 import session from "express-session";
 import passport from "passport";
 import passportRoute from "./routes/passport.routes.js";
+import skilledProfileRoutes from "./routes/skilled.routes.js";
 
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
@@ -50,6 +51,7 @@ const limiter = rateLimit({
 // Routes
 app.use("/api/auth", limiter, authRoutes);
 app.use("/auth", passportRoute);
+app.use("/api/skilled_profiles", skilledProfileRoutes);
 
 // Test Facebook config
 // app.get("/test-facebook-config", (req, res) => {
