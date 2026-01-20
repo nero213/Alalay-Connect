@@ -1,4 +1,3 @@
-import { oneOf } from "express-validator";
 import { pool } from "../config/db.js";
 
 const ensureProfileExists = async (userId) => {
@@ -11,24 +10,19 @@ const ensureProfileExists = async (userId) => {
 // this is for the creation of skilled profile
 export const createSkilledProfile = async (req, res) => {
   try {
-    // step 1 first is to req body from the users req.body gets the input
     const { bio, years_experience } = req.body;
 
-    // validation from the database if another user already exist
     const [existing] = await pool.query(
       "SELECT * FROM skilled_profiles WHERE user_id = ?",
       [req.user.id]
     );
-    // use the length since it would return a value if it exist
     if (existing.length) {
       return res.status(400).json({ message: "skilled profile already exist" });
     }
-    // if not then insert the value to the database
     await pool.query(
       `INSERT INTO skilled_profiles (user_id, bio, years_experience) VALUES (?, ?, ?)`,
       [req.user.id, bio, years_experience]
     );
-    // then return a message after the fact
     res.status(201).json({ message: "skilled profile created" });
   } catch (error) {
     console.error(error);
@@ -36,7 +30,6 @@ export const createSkilledProfile = async (req, res) => {
   }
 };
 
-// this is a controller made to get the profile of the skilled worker
 export const getMySkilledProfile = async (req, res) => {
   try {
     const [rows] = await pool.query(

@@ -7,6 +7,7 @@ import session from "express-session";
 import passport from "passport";
 import passportRoute from "./routes/passport.routes.js";
 import skilledProfileRoutes from "./routes/skilled.routes.js";
+import skillProfileRoutes from "./routes/skill.routes.js";
 
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
@@ -52,6 +53,7 @@ const limiter = rateLimit({
 app.use("/api/auth", limiter, authRoutes);
 app.use("/auth", passportRoute);
 app.use("/api/skilled_profiles", skilledProfileRoutes);
+app.use("/api/skill", skillProfileRoutes);
 
 // Test Facebook config
 // app.get("/test-facebook-config", (req, res) => {

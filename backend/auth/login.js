@@ -36,7 +36,7 @@ export const userLogin = async (req, res) => {
     const token = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES,
     });
-
+    // make sure to remove the user in the response 
     return res.status(200).json({
       message: "successful",
       token,

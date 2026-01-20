@@ -15,7 +15,12 @@ const router = Router();
 
 router.post("/", verifyToken, createSkilledProfile);
 router.get("/me", verifyToken, getMySkilledProfile);
-router.post("/gov-id", verifyToken, upload.single("gov_id"), uploadGovID);
+router.post(
+  "/gov-id", 
+  verifyToken, 
+  upload.single("gov_id"), 
+  uploadGovID
+);
 router.post(
   "/profile-image",
   verifyToken,
