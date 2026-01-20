@@ -1,12 +1,6 @@
-<<<<<<< HEAD
-.env
-
-node_modules
-=======
 # Node modules
 node_modules/
 
 # Environment variables
 .env
 
->>>>>>> origin/backend

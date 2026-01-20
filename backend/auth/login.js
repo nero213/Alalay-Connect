@@ -26,6 +26,7 @@ export const userLogin = async (req, res) => {
     // }
 
     const jwtPayload = {
+      id: found.user_id,
       firstName: found.firstName,
       lastName: found.lastName,
       email: found.email,
@@ -35,11 +36,12 @@ export const userLogin = async (req, res) => {
     const token = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES,
     });
-
+    // make sure to remove the user in the response 
     return res.status(200).json({
       message: "successful",
       token,
       user: {
+        id: found.user_id,
         username: found.firstName,
         lastName: found.lastName,
         email: found.email,

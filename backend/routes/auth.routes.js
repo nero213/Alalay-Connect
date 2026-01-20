@@ -1,7 +1,7 @@
 import express from "express";
 import { registerValidators } from "../auth/authvalidator.js";
 import { userRegister } from "../auth/register.js";
-import { verifyToken } from "../middleware/authmiddleware.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
 import { loginValidators } from "../auth/authvalidator.js";
 import { userLogin } from "../auth/login.js";
 
