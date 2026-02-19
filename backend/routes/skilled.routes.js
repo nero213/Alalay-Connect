@@ -8,6 +8,7 @@ import {
   uploadCertificate,
   uploadProfileImages,
   verifySkilledProfile,
+  updateSkilledLocation,
 } from "../controllers/skilled.controllers.js";
 import upload from "../utils/upload.js";
 
@@ -15,25 +16,20 @@ const router = Router();
 
 router.post("/", verifyToken, createSkilledProfile);
 router.get("/me", verifyToken, getMySkilledProfile);
-router.post(
-  "/gov-id", 
-  verifyToken, 
-  upload.single("gov_id"), 
-  uploadGovID
-);
+router.post("/gov-id", verifyToken, upload.single("gov_id"), uploadGovID);
 router.post(
   "/profile-image",
   verifyToken,
   upload.single("profile_image"),
-  uploadProfileImages
+  uploadProfileImages,
 );
 router.post(
   "/certificate",
   verifyToken,
   upload.single("certificate"),
-  uploadCertificate
+  uploadCertificate,
 );
-
+router.put("/location", verifyToken, updateSkilledLocation);
 router.patch("/:id/verify", verifyToken, role("admin"), verifySkilledProfile);
 
 export default router;

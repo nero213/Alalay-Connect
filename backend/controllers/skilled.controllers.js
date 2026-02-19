@@ -3,7 +3,7 @@ import { pool } from "../config/db.js";
 const ensureProfileExists = async (userId) => {
   const [[profile]] = await pool.query(
     "SELECT skilled_id FROM skilled_profiles WHERE user_id = ?",
-    [userId]
+    [userId],
   );
   return profile;
 };
@@ -14,14 +14,14 @@ export const createSkilledProfile = async (req, res) => {
 
     const [existing] = await pool.query(
       "SELECT * FROM skilled_profiles WHERE user_id = ?",
-      [req.user.id]
+      [req.user.id],
     );
     if (existing.length) {
       return res.status(400).json({ message: "skilled profile already exist" });
     }
     await pool.query(
       `INSERT INTO skilled_profiles (user_id, bio, years_experience) VALUES (?, ?, ?)`,
-      [req.user.id, bio, years_experience]
+      [req.user.id, bio, years_experience],
     );
     res.status(201).json({ message: "skilled profile created" });
   } catch (error) {
@@ -34,7 +34,7 @@ export const getMySkilledProfile = async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM skilled_profiles WHERE user_id = ?",
-      [req.user.id]
+      [req.user.id],
     );
     if (!rows.length) {
       return res.status(404).json({ message: "skilled profile not found" });
@@ -57,7 +57,7 @@ export const uploadGovID = async (req, res) => {
 
     await pool.query(
       "UPDATE skilled_profiles SET gov_id = ? WHERE user_id = ?",
-      [req.file.path, req.user.id]
+      [req.file.path, req.user.id],
     );
 
     res.json({ message: "Goverment ID uploaded" });
@@ -77,7 +77,7 @@ export const uploadCertificate = async (req, res) => {
 
     await pool.query(
       "UPDATE skilled_profiles SET certificate = ? WHERE user_id = ?",
-      [req.file.path, req.user.id]
+      [req.file.path, req.user.id],
     );
 
     res.json({ message: "Certificate Uploaded" });
@@ -97,7 +97,7 @@ export const uploadProfileImages = async (req, res) => {
 
     await pool.query(
       "UPDATE skilled_profiles SET profile_image = ? WHERE user_id = ?",
-      [req.file.path, req.user.id]
+      [req.file.path, req.user.id],
     );
 
     res.json({ message: "profile images Uploaded" });
@@ -114,7 +114,7 @@ export const verifySkilledProfile = async (req, res) => {
 
     await pool.query(
       `UPDATE skilled_profiles SET verification_status = ?, verified_at = NOW() WHERE skilled_id = ?`,
-      [status, id]
+      [status, id],
     );
     if (status === "approved") {
       await pool.query(
@@ -122,7 +122,7 @@ export const verifySkilledProfile = async (req, res) => {
       JOIN skilled_profiles sp ON sp.user_id = u.user_id
       SET u.role = "skilled", u.status = "active" 
       WHERE sp.skilled_id = ?`,
-        [id]
+        [id],
       );
     }
 
@@ -130,5 +130,30 @@ export const verifySkilledProfile = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "something went wrong with the server" });
+  }
+};
+
+export const updateSkilledLocation = async (req, res) => {
+  try {
+    const { barangay, city, latitude, longitude } = req.body;
+    if (!barangay || !city) {
+      return res
+        .status(400)
+        .json({ message: "Barangay and city are required" });
+    }
+    const profile = await ensureProfileExists(req.user.id);
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ message: "skilled profile user not found" });
+    }
+    await pool.query(
+      `UPDATE skilled_profiles SET barangay = ?, city = ?, latitude = ?, longitude = ?, is_active = 1 WHERE user_id = ? AND  verification_status = "approved"`,
+      [barangay, city, latitude ?? null, longitude ?? null, req.user.id],
+    );
+    res.status(200).json({ message: "Location updated" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something wrong with the server" });
   }
 };
