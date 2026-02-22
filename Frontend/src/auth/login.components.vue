@@ -33,7 +33,7 @@ const userLogin = async () => {
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
 
-        router.push("/profile");
+        router.push("/becomeSkilled");
 
         // Reset form
         Object.keys(form).forEach(k => form[k] = "");

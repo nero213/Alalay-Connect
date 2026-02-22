@@ -161,7 +161,7 @@ const userLogin = async () => {
 
 </template>
 
-<style>
+<style scoped>
 .register-container {
     display: flex;
     justify-content: center;
