@@ -3,11 +3,30 @@ import { pool } from "../config/db.js";
 const getProfileId = async (userId) => {
   const [[profile]] = await pool.query(
     "SELECT skilled_id from skilled_profiles WHERE user_id = ?",
+<<<<<<< HEAD
     [userId]
+=======
+    [userId],
+>>>>>>> backend
   );
   return profile;
 };
 
+<<<<<<< HEAD
+=======
+export const getAllSkills = async (req, res) => {
+  try {
+    const [skills] = await pool.query(
+      "SELECT * FROM skills ORDER BY skill_id ASC",
+    );
+    res.json(skills);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+>>>>>>> backend
 export const addSkillsToProfile = async (req, res) => {
   try {
     const { skills } = req.body;
@@ -23,7 +42,11 @@ export const addSkillsToProfile = async (req, res) => {
     const values = skills.map((skillsId) => [profile.skilled_id, skillsId]);
     await pool.query(
       "INSERT IGNORE INTO skilled_profile_skills(skilled_id, skill_id) VALUES ?",
+<<<<<<< HEAD
       [values]
+=======
+      [values],
+>>>>>>> backend
     );
     res.status(201).json({ message: "succesfully added skills" });
   } catch (error) {
@@ -44,7 +67,11 @@ export const getMyskills = async (req, res) => {
       JOIN skilled_profile_skills sps 
       ON s.skill_id = sps.skill_id
       WHERE sps.skilled_id = ?`,
+<<<<<<< HEAD
       [profile.skilled_id]
+=======
+      [profile.skilled_id],
+>>>>>>> backend
     );
     res.status(201).json(skills);
   } catch (error) {
@@ -63,7 +90,11 @@ export const removeSkillFromProfile = async (req, res) => {
 
     await pool.query(
       "DELETE FROM skilled_profile_skills WHERE skilled_id = ? AND skill_id = ?",
+<<<<<<< HEAD
       [profile.skilled_id, skillId]
+=======
+      [profile.skilled_id, skillId],
+>>>>>>> backend
     );
     res.status(201).json({
       message: "remove skilled successful",
