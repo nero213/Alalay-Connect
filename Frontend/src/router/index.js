@@ -1,8 +1,10 @@
-import profileView from '@/components/views/profile.view.vue'
-import loginComponents from '@/components/auth/login.components.vue'
+import profileView from '@/views/profile.view.vue'
+import loginComponents from '@/auth/login.components.vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import registrationComponents from '@/components/auth/registration.components.vue'
-import FacebookView from '@/components/views/Facebook.view.vue'
+import registrationComponents from '@/auth/registration.components.vue'
+import FacebookView from '@/views/Facebook.view.vue'
+import dashBoardView from '@/views/dashBoard.view.vue'
+import BecomeProfessional from '@/components/BecomeProfessional.vue'
 
 const routes = [
   {
@@ -25,6 +27,16 @@ const routes = [
     path: '/facebook-success',
     name: 'facebook',
     component: FacebookView,
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: dashBoardView,
+  },
+  {
+    path: '/becomeSkilled',
+    name: 'becomeSkilled',
+    component: BecomeProfessional,
   },
 ]
 
