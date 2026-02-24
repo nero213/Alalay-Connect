@@ -1,4 +1,5 @@
 import { pool } from "../config/db.js";
+import axios from "axios";
 
 const ensureProfileExists = async (userId) => {
   const [[profile]] = await pool.query(
@@ -7,6 +8,16 @@ const ensureProfileExists = async (userId) => {
   );
   return profile;
 };
+
+export const getSkilledUsers = async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM skilled_profiles");
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Something wrong with the server " });
+  }
+};
+
 // this is for the creation of skilled profile
 export const createSkilledProfile = async (req, res) => {
   try {
@@ -19,9 +30,17 @@ export const createSkilledProfile = async (req, res) => {
     if (existing.length) {
       return res.status(400).json({ message: "skilled profile already exist" });
     }
+
+    const [[user]] = await pool.query(
+      "SELECT firstName,lastName FROM users WHERE user_id = ? ",
+      [req.user.id],
+    );
+    if (!user) {
+      return res.status(401).json({ message: "user not found" });
+    }
     await pool.query(
-      `INSERT INTO skilled_profiles (user_id, bio, years_experience) VALUES (?, ?, ?)`,
-      [req.user.id, bio, years_experience],
+      `INSERT INTO skilled_profiles (user_id, firstName, lastName, bio,  years_experience) VALUES (?, ?, ?,?,?)`,
+      [req.user.id, user.firstName, user.lastName, bio, years_experience],
     );
     res.status(201).json({ message: "skilled profile created" });
   } catch (error) {
@@ -49,6 +68,8 @@ export const getMySkilledProfile = async (req, res) => {
 
 export const uploadGovID = async (req, res) => {
   try {
+    console.log("FILE:", req.file);
+    console.log("BODY:", req.body);
     const profile = await ensureProfileExists(req.user.id);
 
     if (!profile) {
@@ -69,6 +90,8 @@ export const uploadGovID = async (req, res) => {
 
 export const uploadCertificate = async (req, res) => {
   try {
+    console.log("FILE:", req.file);
+    console.log("BODY:", req.body);
     const profile = await ensureProfileExists(req.user.id);
 
     if (!profile) {
@@ -89,6 +112,8 @@ export const uploadCertificate = async (req, res) => {
 
 export const uploadProfileImages = async (req, res) => {
   try {
+    console.log("FILE:", req.file);
+    console.log("BODY:", req.body);
     const profile = await ensureProfileExists(req.user.id);
 
     if (!profile) {
@@ -133,27 +158,100 @@ export const verifySkilledProfile = async (req, res) => {
   }
 };
 
+const getAddressFromCoordinates = async (lat, lon) => {
+  try {
+    const { data } = await axios.get(
+      "https://nominatim.openstreetmap.org/reverse",
+      {
+        params: { lat, lon, format: "json", addressdetails: 1 },
+        headers: {
+          "User-Agent": "YourAppName/1.0", // Good practice for Nominatim
+        },
+      },
+    );
+
+    const barangay = data.address.suburb || data.address.village || "Unknown";
+    const city = data.address.city || data.address.town || "Unknown";
+
+    return { barangay, city };
+  } catch (err) {
+    console.error("Reverse geocode failed:", err);
+    return { barangay: "Unknown", city: "Unknown" };
+  }
+};
+
 export const updateSkilledLocation = async (req, res) => {
   try {
-    const { barangay, city, latitude, longitude } = req.body;
-    if (!barangay || !city) {
-      return res
-        .status(400)
-        .json({ message: "Barangay and city are required" });
+    let { barangay, city, latitude, longitude } = req.body;
+
+    // If barangay or city is missing/empty, get from coordinates
+    if (!barangay || !barangay.trim() || !city || !city.trim()) {
+      if (latitude && longitude) {
+        const result = await getAddressFromCoordinates(latitude, longitude);
+        barangay = result.barangay;
+        city = result.city;
+      }
     }
+
     const profile = await ensureProfileExists(req.user.id);
+
     if (!profile) {
       return res
         .status(404)
         .json({ message: "skilled profile user not found" });
     }
+
     await pool.query(
-      `UPDATE skilled_profiles SET barangay = ?, city = ?, latitude = ?, longitude = ?, is_active = 1 WHERE user_id = ? AND  verification_status = "approved"`,
+      `UPDATE skilled_profiles SET barangay = ?, city = ?, latitude = ?, longitude = ?, is_active = 1 WHERE user_id = ?`,
       [barangay, city, latitude ?? null, longitude ?? null, req.user.id],
     );
+
     res.status(200).json({ message: "Location updated" });
   } catch (error) {
-    console.error(error);
+    console.error("Location update error:", error);
     res.status(500).json({ message: "Something wrong with the server" });
+  }
+};
+export const searchSkilledWorkers = async (req, res) => {
+  try {
+    const { lat, lng, skill } = req.query;
+
+    if (!lat || !lng) {
+      return res.status(400).json({ message: "location required" });
+    }
+    const query = `SELECT u.user_id, 
+    CONCAT(u.firstName, ' ', u.lastName) AS fullName, 
+    sp.bio, 
+    sp.years_experience,
+    sp.latitude,
+    sp.longitude,
+    s.name,
+    u.phone,
+    ( 
+      6371 * acos(
+      cos(radians(?)) * 
+      cos(radians(sp.latitude)) *
+      cos(radians(sp.longitude) - radians(?)) + 
+      sin(radians(?)) * sin(radians(sp.latitude))
+      )
+    ) AS distance 
+    FROM skilled_profiles sp 
+    JOIN users u ON u.user_id = sp.user_id
+    JOIN skilled_profile_skills sps ON sp.skilled_id = sps.skilled_id
+    JOIN skills s ON s.skill_id = sps.skill_id
+    WHERE (? IS NULL OR s.name = ?)
+    ORDER BY distance ASC`;
+
+    const [rows] = await pool.execute(query, [
+      lat,
+      lng,
+      lat,
+      skill || null,
+      skill || null,
+    ]);
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };

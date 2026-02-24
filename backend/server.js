@@ -53,7 +53,7 @@ const limiter = rateLimit({
 app.use("/api/auth", limiter, authRoutes);
 app.use("/auth", passportRoute);
 app.use("/api/skilled_profiles", skilledProfileRoutes);
-app.use("/api/skill", skillProfileRoutes);
+  app.use("/api/skill", skillProfileRoutes);
 
 // Test Facebook config
 // app.get("/test-facebook-config", (req, res) => {

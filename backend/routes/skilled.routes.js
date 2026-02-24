@@ -9,6 +9,8 @@ import {
   uploadProfileImages,
   verifySkilledProfile,
   updateSkilledLocation,
+  searchSkilledWorkers,
+  getSkilledUsers,
 } from "../controllers/skilled.controllers.js";
 import upload from "../utils/upload.js";
 
@@ -30,6 +32,8 @@ router.post(
   uploadCertificate,
 );
 router.put("/location", verifyToken, updateSkilledLocation);
+router.get("/all", getSkilledUsers);
+router.get("/search", searchSkilledWorkers);
 router.patch("/:id/verify", verifyToken, role("admin"), verifySkilledProfile);
 
 export default router;
