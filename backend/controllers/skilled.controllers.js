@@ -1,22 +1,9 @@
 import { pool } from "../config/db.js";
-<<<<<<< HEAD
-=======
 import axios from "axios";
->>>>>>> backend
 
 const ensureProfileExists = async (userId) => {
   const [[profile]] = await pool.query(
     "SELECT skilled_id FROM skilled_profiles WHERE user_id = ?",
-<<<<<<< HEAD
-    [userId]
-  );
-  return profile;
-};
-// this is for the creation of skilled profile
-export const createSkilledProfile = async (req, res) => {
-  try {
-    
-=======
     [userId],
   );
   return profile;
@@ -34,25 +21,15 @@ export const getSkilledUsers = async (req, res) => {
 // this is for the creation of skilled profile
 export const createSkilledProfile = async (req, res) => {
   try {
->>>>>>> backend
     const { bio, years_experience } = req.body;
 
     const [existing] = await pool.query(
       "SELECT * FROM skilled_profiles WHERE user_id = ?",
-<<<<<<< HEAD
-      [req.user.id]
-=======
       [req.user.id],
->>>>>>> backend
     );
     if (existing.length) {
       return res.status(400).json({ message: "skilled profile already exist" });
     }
-<<<<<<< HEAD
-    await pool.query(
-      `INSERT INTO skilled_profiles (user_id, bio, years_experience) VALUES (?, ?, ?)`,
-      [req.user.id, bio, years_experience]
-=======
 
     const [[user]] = await pool.query(
       "SELECT firstName,lastName FROM users WHERE user_id = ? ",
@@ -64,7 +41,6 @@ export const createSkilledProfile = async (req, res) => {
     await pool.query(
       `INSERT INTO skilled_profiles (user_id, firstName, lastName, bio,  years_experience) VALUES (?, ?, ?,?,?)`,
       [req.user.id, user.firstName, user.lastName, bio, years_experience],
->>>>>>> backend
     );
     res.status(201).json({ message: "skilled profile created" });
   } catch (error) {
@@ -77,11 +53,7 @@ export const getMySkilledProfile = async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM skilled_profiles WHERE user_id = ?",
-<<<<<<< HEAD
-      [req.user.id]
-=======
-      [req.user.id],
->>>>>>> backend
+      [req.usser.id],
     );
     if (!rows.length) {
       return res.status(404).json({ message: "skilled profile not found" });
@@ -96,11 +68,8 @@ export const getMySkilledProfile = async (req, res) => {
 
 export const uploadGovID = async (req, res) => {
   try {
-<<<<<<< HEAD
-=======
     console.log("FILE:", req.file);
     console.log("BODY:", req.body);
->>>>>>> backend
     const profile = await ensureProfileExists(req.user.id);
 
     if (!profile) {
@@ -109,11 +78,7 @@ export const uploadGovID = async (req, res) => {
 
     await pool.query(
       "UPDATE skilled_profiles SET gov_id = ? WHERE user_id = ?",
-<<<<<<< HEAD
-      [req.file.path, req.user.id]
-=======
       [req.file.path, req.user.id],
->>>>>>> backend
     );
 
     res.json({ message: "Goverment ID uploaded" });
@@ -125,11 +90,8 @@ export const uploadGovID = async (req, res) => {
 
 export const uploadCertificate = async (req, res) => {
   try {
-<<<<<<< HEAD
-=======
     console.log("FILE:", req.file);
     console.log("BODY:", req.body);
->>>>>>> backend
     const profile = await ensureProfileExists(req.user.id);
 
     if (!profile) {
@@ -138,11 +100,7 @@ export const uploadCertificate = async (req, res) => {
 
     await pool.query(
       "UPDATE skilled_profiles SET certificate = ? WHERE user_id = ?",
-<<<<<<< HEAD
-      [req.file.path, req.user.id]
-=======
       [req.file.path, req.user.id],
->>>>>>> backend
     );
 
     res.json({ message: "Certificate Uploaded" });
@@ -154,11 +112,8 @@ export const uploadCertificate = async (req, res) => {
 
 export const uploadProfileImages = async (req, res) => {
   try {
-<<<<<<< HEAD
-=======
     console.log("FILE:", req.file);
     console.log("BODY:", req.body);
->>>>>>> backend
     const profile = await ensureProfileExists(req.user.id);
 
     if (!profile) {
@@ -167,11 +122,7 @@ export const uploadProfileImages = async (req, res) => {
 
     await pool.query(
       "UPDATE skilled_profiles SET profile_image = ? WHERE user_id = ?",
-<<<<<<< HEAD
-      [req.file.path, req.user.id]
-=======
       [req.file.path, req.user.id],
->>>>>>> backend
     );
 
     res.json({ message: "profile images Uploaded" });
@@ -188,11 +139,7 @@ export const verifySkilledProfile = async (req, res) => {
 
     await pool.query(
       `UPDATE skilled_profiles SET verification_status = ?, verified_at = NOW() WHERE skilled_id = ?`,
-<<<<<<< HEAD
-      [status, id]
-=======
       [status, id],
->>>>>>> backend
     );
     if (status === "approved") {
       await pool.query(
@@ -200,11 +147,7 @@ export const verifySkilledProfile = async (req, res) => {
       JOIN skilled_profiles sp ON sp.user_id = u.user_id
       SET u.role = "skilled", u.status = "active" 
       WHERE sp.skilled_id = ?`,
-<<<<<<< HEAD
-        [id]
-=======
         [id],
->>>>>>> backend
       );
     }
 
@@ -214,8 +157,6 @@ export const verifySkilledProfile = async (req, res) => {
     res.status(500).json({ message: "something went wrong with the server" });
   }
 };
-<<<<<<< HEAD
-=======
 
 const getAddressFromCoordinates = async (lat, lon) => {
   try {
@@ -314,4 +255,3 @@ export const searchSkilledWorkers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
->>>>>>> backend
