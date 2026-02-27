@@ -239,7 +239,7 @@ export const searchSkilledWorkers = async (req, res) => {
     JOIN users u ON u.user_id = sp.user_id
     JOIN skilled_profile_skills sps ON sp.skilled_id = sps.skilled_id
     JOIN skills s ON s.skill_id = sps.skill_id
-    WHERE (? IS NULL OR s.name = ?)
+    WHERE (? IS NULL OR s.name = ?) AND sp.verification_status = "approved"
     ORDER BY distance ASC`;
 
     const [rows] = await pool.execute(query, [
@@ -253,5 +253,156 @@ export const searchSkilledWorkers = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// In your skilledProfiles controller
+export const getCompleteSkilledProfile = async (req, res) => {
+  try {
+    // Get the skilled profile
+    const [profileRows] = await pool.query(
+      `SELECT sp.*, 
+              u.email, 
+              u.phone, 
+              u.role,
+              u.status as account_status,
+              u.created_at as member_since
+       FROM skilled_profiles sp
+       JOIN users u ON u.user_id = sp.user_id
+       WHERE sp.user_id = ?`,
+      [req.user.id],
+    );
+
+    if (!profileRows.length) {
+      return res.status(404).json({ message: "Profile not found" });
+    }
+
+    const profile = profileRows[0];
+
+    // Get the user's skills
+    const [skills] = await pool.query(
+      `SELECT s.skill_id, s.name, sps.created_at AS added_at
+       FROM skills s
+       JOIN skilled_profile_skills sps ON s.skill_id = sps.skill_id
+       WHERE sps.skilled_id = ?`,
+      [profile.skilled_id],
+    );
+
+    // Get profile completion status
+    const completionStatus = {
+      basic_info: !!(profile.bio && profile.years_experience),
+      location: !!(profile.latitude && profile.longitude),
+      skills: skills.length > 0,
+      gov_id: !!profile.gov_id,
+      certificate: !!profile.certificate,
+      profile_image: !!profile.profile_image,
+    };
+
+    // Calculate overall completion percentage
+    const totalFields = Object.keys(completionStatus).length;
+    const completedFields =
+      Object.values(completionStatus).filter(Boolean).length;
+    const completionPercentage = Math.round(
+      (completedFields / totalFields) * 100,
+    );
+
+    // Return complete profile
+    res.json({
+      profile: {
+        ...profile,
+        skills,
+        completion: {
+          status: completionStatus,
+          percentage: completionPercentage,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching complete profile:", error);
+    res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+export const updateBio = async (req, res) => {
+  try {
+    const { bio, years_experience } = req.body;
+
+    // Validate input
+    if (!bio || !years_experience) {
+      return res
+        .status(400)
+        .json({ message: "Bio and years of experience are required" });
+    }
+
+    // Check if profile exists
+    const profile = await ensureProfileExists(req.user.id);
+    if (!profile) {
+      return res.status(404).json({ message: "Skilled profile not found" });
+    }
+
+    // Update the profile
+    await pool.query(
+      `UPDATE skilled_profiles 
+       SET bio = ?, years_experience = ? 
+       WHERE user_id = ?`,
+      [bio, years_experience, req.user.id],
+    );
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      bio,
+      years_experience,
+    });
+  } catch (error) {
+    console.error("Error updating bio:", error);
+    res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+export const updateProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const profile = await ensureProfileExists(req.user.id);
+    if (!profile) {
+      return res.status(404).json({ message: "Skilled profile not found" });
+    }
+
+    await pool.query(
+      "UPDATE skilled_profiles SET profile_image = ? WHERE user_id = ?",
+      [req.file.path, req.user.id],
+    );
+
+    res.json({
+      message: "Profile image updated successfully",
+      imagePath: req.file.path,
+    });
+  } catch (error) {
+    console.error("Error updating profile image:", error);
+    res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+export const updateContactInfo = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    await pool.query("UPDATE users SET phone = ? WHERE user_id = ?", [
+      phone,
+      req.user.id,
+    ]);
+
+    res
+      .status(200)
+      .json({ message: "Contact information updated successfully" });
+  } catch (error) {
+    console.error("Error updating contact info:", error);
+    res.status(500).json({ message: "Something went wrong with the server" });
   }
 };
