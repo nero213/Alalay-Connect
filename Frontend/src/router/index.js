@@ -4,7 +4,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import registrationComponents from '@/auth/registration.components.vue'
 import FacebookView from '@/views/Facebook.view.vue'
 import dashBoardView from '@/views/dashBoard.view.vue'
-import BecomeProfessional from '@/components/BecomeProfessional.vue'
+import BecomeProfessional from '@/views/BecomeProfessional.vue'
+import UserProfile from '@/views/userProfile.vue'
 
 const routes = [
   {
@@ -37,6 +38,11 @@ const routes = [
     path: '/becomeSkilled',
     name: 'becomeSkilled',
     component: BecomeProfessional,
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: UserProfile,
   },
 ]
 

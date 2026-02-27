@@ -116,7 +116,7 @@ export const getAllSkills = async () => {
   try {
     // You'll need to create this endpoint in your backend
     // For now, if you don't have it, you can return your hardcoded list
-    const response = await API.get('/skills', getAuthHeader())
+    const response = await API.get('/skill/all', getAuthHeader())
     return response.data
   } catch (error) {
     console.error('Error fetching all skills:', error.response?.data || error.message)
@@ -143,5 +143,57 @@ export const getAllSkills = async () => {
       { skill_id: 19, name: 'Event Coordinator' },
       { skill_id: 20, name: 'DJ' },
     ]
+  }
+}
+
+export const getCompleteProfile = async () => {
+  try {
+    const response = await API.get('/skilled_profiles/profile/complete', getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching complete profile:', error.response?.data || error.message)
+    throw error
+  }
+}
+
+export const getAllProfileSkills = async () => {
+  try {
+    const response = await API.get('/skills', getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching skills:', error.response?.data || error.message)
+    throw error
+  }
+}
+
+export const updateProfileBio = async (data) => {
+  try {
+    const response = await API.put('/skilled_profiles/bio', data, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error updating bio:', error.response?.data || error.message)
+    throw error
+  }
+}
+
+export const updateProfileImageNew = async (file) => {
+  const formData = new FormData()
+  formData.append('profile_image', file)
+
+  return API.put('/skilled_profiles/profile-image', formData, {
+    headers: {
+      ...getAuthHeader().headers,
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+}
+
+export const updateContactInfo = async (data) => {
+  try {
+    const response = await API.put('/skilled_profiles/contact', data, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error updating contact:', error.response?.data || error.message)
+    throw error
   }
 }
