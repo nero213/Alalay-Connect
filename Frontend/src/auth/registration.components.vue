@@ -1,324 +1,873 @@
 <script setup>
-import { ref, reactive, computed } from 'vue';
-import { registerUsers } from '@/api/userService';
+import { ref, reactive, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { registerUsers } from '@/api/userService'
 
+const router = useRouter()
 
-const sanitize = () => {
-    phone.value = phone.value.replace(/\D/g, '')
-}
+// Form data with reactive object
 const registerForms = reactive({
-    email: '',
-    firstName: '',
-    lastName: '',
-    password: '',
-    confirmPassword: '',
-    phone: ''
+  email: '',
+  firstName: '',
+  lastName: '',
+  password: '',
+  confirmPassword: '',
+  phone: '',
 })
 
-const successMessage = ref('');
-const errorMessage = ref('');
+// Validation errors
+const errors = reactive({
+  email: '',
+  firstName: '',
+  lastName: '',
+  password: '',
+  confirmPassword: '',
+  phone: '',
+})
 
-const passwordsMatch = computed(() => {
-    if (!registerForms.confirmPassword) return null;
-    return registerForms.password === registerForms.confirmPassword;
-});
+// UI state
+const successMessage = ref('')
+const errorMessage = ref('')
+const loading = ref(false)
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
+const acceptedTerms = ref(false)
 
-const passwordStrength = computed(() => {
-    const password = registerForms.password;
-    let score = 0;
-
-    if (!password) return 0;
-
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-
-    return score;
-});
-
-const strengthLabel = computed(() => {
-    switch (passwordStrength.value) {
-        case 0:
-        case 1:
-            return "Weak";
-        case 2:
-            return "Medium";
-        case 3:
-        case 4:
-            return "Strong";
-        default:
-            return "";
-    }
-});
-
-const userLogin = async () => {
-
-    successMessage.value = ''
-    errorMessage.value = ''
-
-    if (registerForms.password !== registerForms.confirmPassword) {
-        errorMessage.value = "Password does not match"
-        return
-    }
-    try {
-        const res = await registerUsers
-            ({
-                email: registerForms.email,
-                firstName: registerForms.firstName,
-                lastName: registerForms.lastName,
-                password: registerForms.password,
-                phone: `0${registerForms.phone}`
-            })
-        successMessage.value = res.data.message || "successful"
-
-        Object.keys(registerForms).forEach(k => registerForms[k] = '')
-    } catch (err) {
-        errorMessage.value = err.response?.data?.message || "registration failed"
-    }
+// Email validation
+const validateEmail = (email) => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return re.test(email)
 }
 
+// Phone validation (Philippines format)
+const validatePhone = (phone) => {
+  const re = /^[0-9]{10}$/ // Exactly 10 digits
+  return re.test(phone)
+}
+
+// Password validation
+const validatePassword = (password) => {
+  const errors = []
+  if (password.length < 8) errors.push('at least 8 characters')
+  if (!/[A-Z]/.test(password)) errors.push('one uppercase letter')
+  if (!/[0-9]/.test(password)) errors.push('one number')
+  if (!/[^A-Za-z0-9]/.test(password)) errors.push('one special character')
+  return errors
+}
+
+// Computed properties
+const passwordsMatch = computed(() => {
+  if (!registerForms.confirmPassword) return null
+  return registerForms.password === registerForms.confirmPassword
+})
+
+const passwordStrength = computed(() => {
+  const password = registerForms.password
+  let score = 0
+
+  if (!password) return 0
+
+  if (password.length >= 8) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^A-Za-z0-9]/.test(password)) score++
+
+  return score
+})
+
+const strengthLabel = computed(() => {
+  switch (passwordStrength.value) {
+    case 0:
+    case 1:
+      return { text: 'Weak', class: 'weak' }
+    case 2:
+      return { text: 'Medium', class: 'medium' }
+    case 3:
+    case 4:
+      return { text: 'Strong', class: 'strong' }
+    default:
+      return { text: '', class: '' }
+  }
+})
+
+const passwordErrors = computed(() => {
+  if (!registerForms.password) return []
+  return validatePassword(registerForms.password)
+})
+
+const isFormValid = computed(() => {
+  return (
+    registerForms.email &&
+    registerForms.firstName &&
+    registerForms.lastName &&
+    registerForms.password &&
+    registerForms.confirmPassword &&
+    registerForms.phone &&
+    acceptedTerms.value &&
+    validateEmail(registerForms.email) &&
+    passwordsMatch.value === true &&
+    passwordStrength.value >= 2 && // At least medium strength
+    validatePhone(registerForms.phone)
+  )
+})
+
+// Validation methods
+const validateField = (field) => {
+  switch (field) {
+    case 'email':
+      if (!registerForms.email) {
+        errors.email = 'Email is required'
+      } else if (!validateEmail(registerForms.email)) {
+        errors.email = 'Please enter a valid email address'
+      } else {
+        errors.email = ''
+      }
+      break
+
+    case 'firstName':
+      if (!registerForms.firstName) {
+        errors.firstName = 'First name is required'
+      } else if (registerForms.firstName.length < 2) {
+        errors.firstName = 'First name must be at least 2 characters'
+      } else if (!/^[A-Za-z\s-]+$/.test(registerForms.firstName)) {
+        errors.firstName = 'First name can only contain letters, spaces, and hyphens'
+      } else {
+        errors.firstName = ''
+      }
+      break
+
+    case 'lastName':
+      if (!registerForms.lastName) {
+        errors.lastName = 'Last name is required'
+      } else if (registerForms.lastName.length < 2) {
+        errors.lastName = 'Last name must be at least 2 characters'
+      } else if (!/^[A-Za-z\s-]+$/.test(registerForms.lastName)) {
+        errors.lastName = 'Last name can only contain letters, spaces, and hyphens'
+      } else {
+        errors.lastName = ''
+      }
+      break
+
+    case 'password':
+      if (!registerForms.password) {
+        errors.password = 'Password is required'
+      } else if (passwordErrors.value.length > 0) {
+        errors.password = 'Password does not meet requirements'
+      } else {
+        errors.password = ''
+      }
+      // Also validate confirm password when password changes
+      if (registerForms.confirmPassword) {
+        validateField('confirmPassword')
+      }
+      break
+
+    case 'confirmPassword':
+      if (!registerForms.confirmPassword) {
+        errors.confirmPassword = 'Please confirm your password'
+      } else if (registerForms.password !== registerForms.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match'
+      } else {
+        errors.confirmPassword = ''
+      }
+      break
+
+    case 'phone':
+      const cleanedPhone = registerForms.phone.replace(/\D/g, '')
+      if (!cleanedPhone) {
+        errors.phone = 'Phone number is required'
+      } else if (!validatePhone(cleanedPhone)) {
+        errors.phone = 'Please enter a valid 10-digit phone number'
+      } else {
+        errors.phone = ''
+      }
+      break
+  }
+}
+
+// Handle phone input
+const handlePhoneInput = (event) => {
+  let value = event.target.value.replace(/\D/g, '')
+  if (value.length > 10) value = value.slice(0, 10)
+  registerForms.phone = value
+  validateField('phone')
+}
+
+// Handle input with validation
+const handleInput = (field) => {
+  successMessage.value = ''
+  errorMessage.value = ''
+  validateField(field)
+}
+
+// Submit form
+// Submit form
+const userRegister = async () => {
+  // Validate all fields
+  Object.keys(registerForms).forEach((field) => validateField(field))
+
+  if (!isFormValid.value) {
+    errorMessage.value = 'Please fix the errors before submitting'
+    return
+  }
+
+  if (!acceptedTerms.value) {
+    errorMessage.value = 'Please accept the Terms and Conditions'
+    return
+  }
+
+  successMessage.value = ''
+  errorMessage.value = ''
+  loading.value = true
+
+  try {
+    // Clean phone number (remove any non-digits and ensure it starts with 0)
+    const cleanPhone = registerForms.phone.replace(/\D/g, '')
+    const formattedPhone = cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`
+
+    const res = await registerUsers({
+      email: registerForms.email.trim().toLowerCase(),
+      firstName: registerForms.firstName.trim(),
+      lastName: registerForms.lastName.trim(),
+      password: registerForms.password,
+      phone: formattedPhone,
+    })
+
+    // Check if verification is required
+    if (res.data.requiresVerification) {
+      // Redirect to verification page with email
+      router.push({
+        path: '/verify-email',
+        query: { email: registerForms.email.trim().toLowerCase() },
+      })
+    } else {
+      // If no verification required (shouldn't happen with our setup)
+      successMessage.value = res.data.message || 'Registration successful! Redirecting to login...'
+
+      // Clear form
+      Object.keys(registerForms).forEach((k) => (registerForms[k] = ''))
+      acceptedTerms.value = false
+
+      // Redirect to login after success
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    }
+  } catch (err) {
+    errorMessage.value = err.response?.data?.message || 'Registration failed. Please try again.'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Format name to capitalize first letter
+const formatName = (field) => {
+  if (registerForms[field]) {
+    registerForms[field] = registerForms[field]
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
+}
 </script>
 
 <template>
-    <div class="register-container">
-        <div class="register-box">
-            <h1>Registration</h1>
+  <div class="register-container">
+    <div class="register-box">
+      <h1>Create Account</h1>
+      <p class="subtitle">Join us today! Fill in your details below.</p>
 
-            <form @submit.prevent="userLogin">
-
-                <div class="input-group">
-                    <label>Email</label>
-                    <input type="email" v-model="registerForms.email" required />
-                </div>
-
-                <div class="input-group">
-                    <label>FirstName</label>
-                    <input type="text" v-model="registerForms.firstName" required />
-                </div>
-
-                <div class="input-group">
-                    <label>LastName</label>
-                    <input type="text" v-model="registerForms.lastName" required />
-                </div>
-
-                <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" v-model="registerForms.password" required />
-                    <div class="strength-wrapper" v-if="registerForms.password">
-                        <div class="strength-bar">
-                            <div class="strength-fill" :class="strengthLabel.toLowerCase()"
-                                :style="{ width: (passwordStrength * 25) + '%' }">
-                            </div>
-                        </div>
-                        <small :class="strengthLabel.toLowerCase()">
-                            {{ strengthLabel }} Password
-                        </small>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Confirm Password</label>
-                    <input type="password" v-model="registerForms.confirmPassword" :class="{
-                        'input-success': passwordsMatch === true,
-                        'input-error': passwordsMatch === false
-                    }" required />
-                    <div v-if="registerForms.confirmPassword" class="confirm-feedback">
-                        <small v-if="passwordsMatch" class="match">
-                            ✓ Passwords match
-                        </small>
-
-                        <small v-else class="no-match">
-                            ✗ Passwords do not match
-                        </small>
-                    </div>
-
-                </div>
-                <div class="input-group">
-
-
-                    <label>Phone</label>
-                    <div class="phone-wrapper">
-                        <div class="country-code">
-                            <span>+63</span>
-                        </div>
-
-                        <input type="tel" v-model="registerForms.phone" placeholder="9XXXXXXXXX" maxlength="10"
-                            required />
-                    </div>
-                </div>
-                <button type="submit"> Register</button>
-
-                <p v-if="successMessage" class="success">{{ successMessage }}</p>
-                <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-
-            </form>
-
+      <form @submit.prevent="userRegister" novalidate>
+        <!-- Email Field -->
+        <div class="input-group" :class="{ 'has-error': errors.email }">
+          <label for="email">Email Address</label>
+          <input
+            id="email"
+            type="email"
+            v-model="registerForms.email"
+            placeholder="your@email.com"
+            required
+            @input="handleInput('email')"
+            @blur="validateField('email')"
+            :disabled="loading"
+          />
+          <span v-if="errors.email" class="field-error">{{ errors.email }}</span>
         </div>
 
+        <!-- First Name Field -->
+        <div class="input-group" :class="{ 'has-error': errors.firstName }">
+          <label for="firstName">First Name</label>
+          <input
+            id="firstName"
+            type="text"
+            v-model="registerForms.firstName"
+            placeholder="John"
+            required
+            @input="handleInput('firstName')"
+            @blur="formatName('firstName')"
+            :disabled="loading"
+          />
+          <span v-if="errors.firstName" class="field-error">{{ errors.firstName }}</span>
+        </div>
 
+        <!-- Last Name Field -->
+        <div class="input-group" :class="{ 'has-error': errors.lastName }">
+          <label for="lastName">Last Name</label>
+          <input
+            id="lastName"
+            type="text"
+            v-model="registerForms.lastName"
+            placeholder="Doe"
+            required
+            @input="handleInput('lastName')"
+            @blur="formatName('lastName')"
+            :disabled="loading"
+          />
+          <span v-if="errors.lastName" class="field-error">{{ errors.lastName }}</span>
+        </div>
+
+        <!-- Password Field -->
+        <div class="input-group" :class="{ 'has-error': errors.password }">
+          <label for="password">Password</label>
+          <div class="password-wrapper">
+            <input
+              id="password"
+              :type="showPassword ? 'text' : 'password'"
+              v-model="registerForms.password"
+              placeholder="••••••••"
+              required
+              @input="handleInput('password')"
+              @blur="validateField('password')"
+              :disabled="loading"
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              @click="showPassword = !showPassword"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+            >
+              {{ showPassword ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+
+          <!-- Password strength indicator -->
+          <div class="strength-wrapper" v-if="registerForms.password">
+            <div class="strength-bar">
+              <div
+                class="strength-fill"
+                :class="strengthLabel.class"
+                :style="{ width: passwordStrength * 25 + '%' }"
+              ></div>
+            </div>
+            <small :class="strengthLabel.class"> {{ strengthLabel.text }} Password </small>
+          </div>
+
+          <!-- Password requirements -->
+          <div
+            v-if="registerForms.password && passwordErrors.length > 0"
+            class="password-requirements"
+          >
+            <small>Password must contain:</small>
+            <ul>
+              <li v-for="(error, index) in passwordErrors" :key="index" class="requirement-item">
+                ✗ {{ error }}
+              </li>
+            </ul>
+          </div>
+
+          <span v-if="errors.password" class="field-error">{{ errors.password }}</span>
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div class="input-group" :class="{ 'has-error': errors.confirmPassword }">
+          <label for="confirmPassword">Confirm Password</label>
+          <div class="password-wrapper">
+            <input
+              id="confirmPassword"
+              :type="showConfirmPassword ? 'text' : 'password'"
+              v-model="registerForms.confirmPassword"
+              placeholder="••••••••"
+              :class="{
+                'input-success': passwordsMatch === true,
+                'input-error': passwordsMatch === false,
+              }"
+              required
+              @input="handleInput('confirmPassword')"
+              @blur="validateField('confirmPassword')"
+              :disabled="loading"
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              @click="showConfirmPassword = !showConfirmPassword"
+              :aria-label="showConfirmPassword ? 'Hide password' : 'Show password'"
+            >
+              {{ showConfirmPassword ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+
+          <!-- Password match feedback -->
+          <div v-if="registerForms.confirmPassword" class="confirm-feedback">
+            <small v-if="passwordsMatch" class="match"> ✓ Passwords match </small>
+            <small v-else class="no-match"> ✗ Passwords do not match </small>
+          </div>
+
+          <span v-if="errors.confirmPassword" class="field-error">{{
+            errors.confirmPassword
+          }}</span>
+        </div>
+
+        <!-- Phone Field -->
+        <div class="input-group" :class="{ 'has-error': errors.phone }">
+          <label for="phone">Phone Number</label>
+          <div class="phone-wrapper">
+            <div class="country-code">
+              <span class="flag">🇵🇭</span>
+              <span>+63</span>
+            </div>
+            <input
+              id="phone"
+              type="tel"
+              v-model="registerForms.phone"
+              placeholder="9XXXXXXXXX"
+              maxlength="10"
+              required
+              @input="handlePhoneInput"
+              @blur="validateField('phone')"
+              :disabled="loading"
+            />
+          </div>
+          <small class="hint">Enter 10-digit mobile number (e.g., 9123456789)</small>
+          <span v-if="errors.phone" class="field-error">{{ errors.phone }}</span>
+        </div>
+
+        <!-- Terms and Conditions -->
+        <div class="terms-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="acceptedTerms" :disabled="loading" />
+            <span
+              >I accept the <a href="#" @click.prevent>Terms and Conditions</a> and
+              <a href="#" @click.prevent>Privacy Policy</a></span
+            >
+          </label>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" :disabled="loading || !isFormValid" class="submit-btn">
+          <span v-if="loading" class="spinner"></span>
+          {{ loading ? 'Creating Account...' : 'Create Account' }}
+        </button>
+
+        <!-- Login Link -->
+        <div class="login-link">
+          Already have an account?
+          <router-link to="/login">Sign in</router-link>
+        </div>
+
+        <!-- Messages -->
+        <transition name="fade">
+          <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
+        </transition>
+        <transition name="fade">
+          <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+        </transition>
+      </form>
     </div>
-
+  </div>
 </template>
 
 <style scoped>
 .register-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background-color: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
 }
 
 .register-box {
-    background-color: #fff;
-    padding: 30px 50px;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-    width: 550px;
-    text-align: center;
+  background-color: #fff;
+  padding: 40px 50px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 550px;
+  text-align: center;
 }
 
+.register-box h1 {
+  font-weight: 600;
+  font-size: 28px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
 
 .input-group label {
-    display: block;
-    margin-bottom: 4px;
-    margin-top: 10px;
-    font-weight: 600;
-    text-align: left;
-
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  color: #555;
 }
 
 .input-group input {
-    width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.3s ease;
 }
 
-
-.input-group {
-    margin-bottom: 12px;
+.input-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.success {
-    color: green;
-    margin-top: 10px;
+.input-group.has-error input {
+  border-color: #ff4d4f;
 }
 
-.error {
-    color: red;
-    margin-top: 10px;
+.input-group.has-error input:focus {
+  border-color: #ff4d4f;
+  box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.1);
 }
 
-button {
-    font-size: 1rem;
-    padding: 8px 14px;
-    margin: 5px 0;
-    width: 100%;
-    cursor: pointer;
-    border: none;
-    border-radius: 6px;
-    background-color: #007bff;
-    color: #fff;
-    font-weight: 500;
-    transition: background-color 0.2s;
+.field-error {
+  display: block;
+  color: #ff4d4f;
+  font-size: 12px;
+  margin-top: 4px;
+  animation: slideIn 0.3s ease;
 }
 
-button:hover {
-    background-color: #0056b3;
+.hint {
+  display: block;
+  color: #888;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.password-wrapper {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  margin: 0;
+  width: auto;
+  border-radius: 4px;
+}
+
+.password-toggle:hover {
+  background-color: rgba(102, 126, 234, 0.1);
 }
 
 .strength-wrapper {
-    margin-top: 6px;
-    text-align: left;
+  margin-top: 8px;
+  text-align: left;
 }
 
 .strength-bar {
-    height: 6px;
-    background: #ddd;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-bottom: 4px;
+  height: 6px;
+  background: #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 4px;
 }
 
 .strength-fill {
-    height: 100%;
-    transition: width 0.3s ease;
+  height: 100%;
+  transition: width 0.3s ease;
 }
 
-/* Strength Colors */
 .strength-fill.weak {
-    background: red;
+  background: #ff4d4f;
 }
 
 .strength-fill.medium {
-    background: orange;
+  background: #faad14;
 }
 
 .strength-fill.strong {
-    background: green;
+  background: #52c41a;
 }
 
 small.weak {
-    color: red;
+  color: #ff4d4f;
 }
 
 small.medium {
-    color: orange;
+  color: #faad14;
 }
 
 small.strong {
-    color: green;
+  color: #52c41a;
+}
+
+.password-requirements {
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.password-requirements small {
+  display: block;
+  margin-bottom: 5px;
+  color: #555;
+  font-weight: 500;
+}
+
+.password-requirements ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.requirement-item {
+  color: #ff4d4f;
+  margin-bottom: 2px;
 }
 
 .confirm-feedback {
-    margin-top: 5px;
-    text-align: left;
+  margin-top: 5px;
+  text-align: left;
 }
 
 .match {
-    color: green;
+  color: #52c41a;
+  font-weight: 500;
 }
 
 .no-match {
-    color: red;
+  color: #ff4d4f;
+  font-weight: 500;
 }
 
 .input-success {
-    border: 1px solid green !important;
+  border-color: #52c41a !important;
 }
 
 .input-error {
-    border: 1px solid red !important;
+  border-color: #ff4d4f !important;
 }
 
 .phone-wrapper {
-    display: flex;
-    align-items: center;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    overflow: hidden;
+  display: flex;
+  align-items: center;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.phone-wrapper:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .country-code {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: #f0f0f0;
-    padding: 8px 10px;
-    font-weight: 500;
-    border-right: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f5f5f5;
+  padding: 12px 15px;
+  font-weight: 500;
+  border-right: 2px solid #e0e0e0;
+  color: #333;
 }
 
 .flag {
-    font-size: 18px;
+  font-size: 18px;
 }
 
 .phone-wrapper input {
-    border: none;
-    outline: none;
-    padding: 8px 10px;
-    flex: 1;
+  border: none;
+  outline: none;
+  padding: 12px 15px;
+  flex: 1;
+}
+
+.phone-wrapper input:focus {
+  box-shadow: none;
+}
+
+.terms-group {
+  margin: 20px 0;
+  text-align: left;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: auto;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.checkbox-label a:hover {
+  text-decoration: underline;
+}
+
+.submit-btn {
+  padding: 12px 20px;
+  margin: 10px 0 15px;
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-link {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  margin-top: 15px;
+}
+
+.login-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
+}
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Messages */
+.success-message,
+.error-message {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  animation: slideDown 0.3s ease;
+}
+
+.success-message {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.error-message {
+  background-color: #fff2f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .register-box {
+    padding: 30px 20px;
+  }
 }
 </style>

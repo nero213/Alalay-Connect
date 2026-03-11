@@ -6,6 +6,8 @@ import FacebookView from '@/views/Facebook.view.vue'
 import dashBoardView from '@/views/dashBoard.view.vue'
 import BecomeProfessional from '@/views/BecomeProfessional.vue'
 import UserProfile from '@/views/userProfile.vue'
+import landingPage from '@/views/landingPage.vue'
+import verifyEmail from '@/views/verifyEmail.vue'
 
 const routes = [
   {
@@ -43,6 +45,16 @@ const routes = [
     path: '/profile',
     name: 'profile',
     component: UserProfile,
+  },
+  {
+    path: '/',
+    name: 'testing',
+    component: landingPage,
+  },
+  {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: verifyEmail,
   },
 ]
 
