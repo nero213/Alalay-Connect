@@ -7,36 +7,45 @@ export const userLogin = async (req, res) => {
     const { email, password } = req.body;
     const [user] = await pool.query(
       "SELECT * FROM users WHERE  email = ? limit 1",
-      [email]
+      [email],
     );
     if (user.length === 0) {
       return res.status(400).json({ message: "user not found" });
     }
     const found = user[0];
+
+    if (found.status === "suspended") {
+      return res.status(403).json({
+        message: "Your account has been suspended. Please contact support.",
+      });
+    }
+
+    if (found.status === "pending") {
+      return res.status(403).json({
+        message: "Please verify your email before logging in.",
+        requiresVerification: true,
+        email: user.email,
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, found.password);
 
     if (!isMatch) {
       return res.status(401).json({ message: "Incorrect password" });
     }
-
-    // if (found.status !== "active") {
-    //   return res.status(403).json({
-    //     message: `status is currently ${found.status}.`,
-    //   });
-    // }
-
     const jwtPayload = {
       id: found.user_id,
       firstName: found.firstName,
       lastName: found.lastName,
       email: found.email,
+      status: found.status,
       role: found.role,
     };
 
     const token = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES,
     });
-    // make sure to remove the user in the response 
+    // make sure to remove the user in the response
     return res.status(200).json({
       message: "successful",
       token,
@@ -46,6 +55,7 @@ export const userLogin = async (req, res) => {
         lastName: found.lastName,
         email: found.email,
         role: found.role,
+        status: found.status,
       },
     });
   } catch (err) {

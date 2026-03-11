@@ -68,67 +68,86 @@ export const getMySkilledProfile = async (req, res) => {
 
 export const uploadGovID = async (req, res) => {
   try {
-    console.log("FILE:", req.file);
-    console.log("BODY:", req.body);
-    const profile = await ensureProfileExists(req.user.id);
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
+    const profile = await ensureProfileExists(req.user.id);
     if (!profile) {
       return res.status(404).json({ message: "Skilled profile not found" });
     }
 
+    const fileUrl = `/uploads/${req.file.filename}`; // Forward slashes
+
     await pool.query(
       "UPDATE skilled_profiles SET gov_id = ? WHERE user_id = ?",
-      [req.file.path, req.user.id],
+      [fileUrl, req.user.id],
     );
 
-    res.json({ message: "Goverment ID uploaded" });
+    res.json({
+      message: "Government ID uploaded successfully",
+      filePath: fileUrl,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Something Went Wrong with the Server" });
+    res.status(500).json({ message: "Something went wrong with the server" });
   }
 };
 
 export const uploadCertificate = async (req, res) => {
   try {
-    console.log("FILE:", req.file);
-    console.log("BODY:", req.body);
-    const profile = await ensureProfileExists(req.user.id);
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
+    const profile = await ensureProfileExists(req.user.id);
     if (!profile) {
       return res.status(404).json({ message: "Skilled profile not found" });
     }
 
+    const fileUrl = `/uploads/${req.file.filename}`; // Forward slashes
+
     await pool.query(
       "UPDATE skilled_profiles SET certificate = ? WHERE user_id = ?",
-      [req.file.path, req.user.id],
+      [fileUrl, req.user.id],
     );
 
-    res.json({ message: "Certificate Uploaded" });
+    res.json({
+      message: "Certificate uploaded successfully",
+      filePath: fileUrl,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Something Went Wrong with the server" });
+    res.status(500).json({ message: "Something went wrong with the server" });
   }
 };
 
 export const uploadProfileImages = async (req, res) => {
   try {
-    console.log("FILE:", req.file);
-    console.log("BODY:", req.body);
-    const profile = await ensureProfileExists(req.user.id);
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
+    const profile = await ensureProfileExists(req.user.id);
     if (!profile) {
       return res.status(404).json({ message: "Skilled profile not found" });
     }
 
+    // ✅ IMPORTANT: Use forward slashes for the URL path
+    const fileUrl = `/uploads/${req.file.filename}`;
+
     await pool.query(
       "UPDATE skilled_profiles SET profile_image = ? WHERE user_id = ?",
-      [req.file.path, req.user.id],
+      [fileUrl, req.user.id], // Store with forward slashes
     );
 
-    res.json({ message: "profile images Uploaded" });
+    res.json({
+      message: "Profile image uploaded successfully",
+      filePath: fileUrl,
+    });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "something When Wrong with the server" });
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong with the server" });
   }
 };
 

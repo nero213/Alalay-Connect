@@ -8,6 +8,8 @@ import passport from "passport";
 import passportRoute from "./routes/passport.routes.js";
 import skilledProfileRoutes from "./routes/skilled.routes.js";
 import skillProfileRoutes from "./routes/skill.routes.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
@@ -15,14 +17,19 @@ import "./config/passport.js"; // Or wherever you put the passport config
 const app = express();
 const PORT = process.env.PORT_NUMBER || 3000;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const corsOption = {
-  origin: "http://localhost:5173",
+  origin: "http://localhost:5173" || "http://10.11.24.134:5173/",
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true, // ✅ lowercase 'c'
 };
 app.use(cors(corsOption));
 
 app.use(express.json());
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use(
   session({
@@ -34,7 +41,7 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
     },
-  })
+  }),
 );
 
 // Initialize passport AFTER session
@@ -53,7 +60,7 @@ const limiter = rateLimit({
 app.use("/api/auth", limiter, authRoutes);
 app.use("/auth", passportRoute);
 app.use("/api/skilled_profiles", skilledProfileRoutes);
-  app.use("/api/skill", skillProfileRoutes);
+app.use("/api/skill", skillProfileRoutes);
 
 // Test Facebook config
 // app.get("/test-facebook-config", (req, res) => {
@@ -73,4 +80,5 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
   console.log(`🔗 Facebook login: http://localhost:${PORT}/auth/facebook`);
+  console.log(`📁 Uploads folder: ${path.join(__dirname, "uploads")}`);
 });

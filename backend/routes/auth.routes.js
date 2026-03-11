@@ -4,12 +4,15 @@ import { userRegister } from "../auth/register.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { loginValidators } from "../auth/authvalidator.js";
 import { userLogin } from "../auth/login.js";
+import { resendVerificationCode, verifyEmail } from "../auth/verifyEmail.js";
 
 const router = express.Router();
 
 // this is the route where my registration happens
 router.post("/register", registerValidators, userRegister);
 router.post("/login", loginValidators, userLogin);
+router.post("/verify-email", verifyEmail);
+router.post("/resend-verification", resendVerificationCode);
 
 router.get("/profile", verifyToken, (req, res) => {
   res.json({ message: "Authorized", user: req.user });
