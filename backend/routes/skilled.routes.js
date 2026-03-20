@@ -16,6 +16,9 @@ import {
   updateSkilledLocation,
   searchSkilledWorkers,
   getSkilledUsers,
+  getPublicSkilledProfile,
+  getPricing,
+  updatePricing,
 } from "../controllers/skilled.controllers.js";
 import upload from "../utils/upload.js";
 
@@ -23,6 +26,7 @@ const router = Router();
 
 router.post("/", verifyToken, createSkilledProfile);
 router.get("/me", verifyToken, getMySkilledProfile);
+router.get("/public/:id", getPublicSkilledProfile);
 router.post("/gov-id", verifyToken, upload.single("gov_id"), uploadGovID);
 router.post(
   "/profile-image",
@@ -50,5 +54,8 @@ router.put(
   updateProfileImage,
 );
 router.put("/contact", verifyToken, updateContactInfo);
+// Pricing routes
+router.get("/pricing", verifyToken, getPricing);
+router.put("/pricing", verifyToken, updatePricing);
 
 export default router;

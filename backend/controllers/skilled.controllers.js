@@ -239,8 +239,10 @@ export const searchSkilledWorkers = async (req, res) => {
       return res.status(400).json({ message: "location required" });
     }
     const query = `SELECT u.user_id, 
-    CONCAT(u.firstName, ' ', u.lastName) AS fullName, 
+    CONCAT(sp.firstName, ' ', sp.lastName) AS fullName, 
     sp.bio, 
+    sp.skilled_id,
+    sp.profile_image,
     sp.years_experience,
     sp.latitude,
     sp.longitude,
@@ -278,14 +280,9 @@ export const searchSkilledWorkers = async (req, res) => {
 // In your skilledProfiles controller
 export const getCompleteSkilledProfile = async (req, res) => {
   try {
-    // Get the skilled profile
+    // Get basic profile with hourly_rate
     const [profileRows] = await pool.query(
-      `SELECT sp.*, 
-              u.email, 
-              u.phone, 
-              u.role,
-              u.status as account_status,
-              u.created_at as member_since
+      `SELECT sp.*, u.email, u.phone, u.role, u.status
        FROM skilled_profiles sp
        JOIN users u ON u.user_id = sp.user_id
        WHERE sp.user_id = ?`,
@@ -298,41 +295,37 @@ export const getCompleteSkilledProfile = async (req, res) => {
 
     const profile = profileRows[0];
 
-    // Get the user's skills
+    // Get user's skills
     const [skills] = await pool.query(
-      `SELECT s.skill_id, s.name, sps.created_at AS added_at
+      `SELECT s.skill_id, s.name 
        FROM skills s
        JOIN skilled_profile_skills sps ON s.skill_id = sps.skill_id
        WHERE sps.skilled_id = ?`,
       [profile.skilled_id],
     );
 
-    // Get profile completion status
-    const completionStatus = {
+    // Calculate profile completion (include hourly_rate)
+    const completion = {
       basic_info: !!(profile.bio && profile.years_experience),
       location: !!(profile.latitude && profile.longitude),
       skills: skills.length > 0,
       gov_id: !!profile.gov_id,
       certificate: !!profile.certificate,
       profile_image: !!profile.profile_image,
+      pricing: !!profile.hourly_rate, // Add this
     };
 
-    // Calculate overall completion percentage
-    const totalFields = Object.keys(completionStatus).length;
-    const completedFields =
-      Object.values(completionStatus).filter(Boolean).length;
-    const completionPercentage = Math.round(
-      (completedFields / totalFields) * 100,
-    );
+    const totalFields = Object.keys(completion).length;
+    const completedFields = Object.values(completion).filter(Boolean).length;
+    const percentage = Math.round((completedFields / totalFields) * 100);
 
-    // Return complete profile
     res.json({
       profile: {
         ...profile,
         skills,
         completion: {
-          status: completionStatus,
-          percentage: completionPercentage,
+          ...completion,
+          percentage,
         },
       },
     });
@@ -423,5 +416,234 @@ export const updateContactInfo = async (req, res) => {
   } catch (error) {
     console.error("Error updating contact info:", error);
     res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+// Get public profile for clients to view
+// Get public profile for clients to view
+export const getPublicSkilledProfile = async (req, res) => {
+  try {
+    const { id } = req.params; // skilled_id
+
+    console.log("Fetching public profile for skilled_id:", id);
+
+    // Get skilled profile with user details - ADD hourly_rate to the SELECT
+    const [profileRows] = await pool.query(
+      `SELECT 
+        sp.skilled_id,
+        sp.user_id,
+        sp.firstName,
+        sp.lastName,
+        sp.bio,
+        sp.years_experience,
+        sp.hourly_rate,  
+        sp.profile_image,
+        sp.gov_id,
+        sp.certificate,
+        sp.verification_status,
+        sp.barangay,
+        sp.city,
+        sp.latitude,
+        sp.longitude,
+        sp.created_at as member_since,
+        u.email,
+        u.phone
+      FROM skilled_profiles sp
+      JOIN users u ON u.user_id = sp.user_id
+      WHERE sp.skilled_id = ? AND sp.verification_status = 'approved'`,
+      [id],
+    );
+
+    if (!profileRows.length) {
+      console.log("No approved profile found for skilled_id:", id);
+      return res
+        .status(404)
+        .json({ message: "Professional not found or not approved" });
+    }
+
+    const profile = profileRows[0];
+
+    // Get the worker's skills
+    const [skills] = await pool.query(
+      `SELECT s.skill_id, s.name 
+       FROM skills s
+       JOIN skilled_profile_skills sps ON s.skill_id = sps.skill_id
+       WHERE sps.skilled_id = ?`,
+      [id],
+    );
+
+    // Get rating statistics
+    const [ratingStats] = await pool.query(
+      `SELECT 
+        COUNT(*) as total_ratings,
+        AVG(rating) as average_rating,
+        SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as five_star,
+        SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as four_star,
+        SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as three_star,
+        SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as two_star,
+        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as one_star
+       FROM ratings
+       WHERE skilled_id = ?`,
+      [id],
+    );
+
+    // Format rating stats
+    const total = ratingStats[0].total_ratings || 0;
+    const stats =
+      total > 0
+        ? {
+            total_ratings: total,
+            average_rating: parseFloat(
+              ratingStats[0].average_rating || 0,
+            ).toFixed(1),
+            distribution: {
+              5: {
+                count: ratingStats[0].five_star || 0,
+                percentage: Math.round(
+                  (ratingStats[0].five_star / total) * 100,
+                ),
+              },
+              4: {
+                count: ratingStats[0].four_star || 0,
+                percentage: Math.round(
+                  (ratingStats[0].four_star / total) * 100,
+                ),
+              },
+              3: {
+                count: ratingStats[0].three_star || 0,
+                percentage: Math.round(
+                  (ratingStats[0].three_star / total) * 100,
+                ),
+              },
+              2: {
+                count: ratingStats[0].two_star || 0,
+                percentage: Math.round((ratingStats[0].two_star / total) * 100),
+              },
+              1: {
+                count: ratingStats[0].one_star || 0,
+                percentage: Math.round((ratingStats[0].one_star / total) * 100),
+              },
+            },
+          }
+        : {
+            total_ratings: 0,
+            average_rating: "0.0",
+            distribution: {
+              5: { count: 0, percentage: 0 },
+              4: { count: 0, percentage: 0 },
+              3: { count: 0, percentage: 0 },
+              2: { count: 0, percentage: 0 },
+              1: { count: 0, percentage: 0 },
+            },
+          };
+
+    // Get recent reviews
+    const [recentReviews] = await pool.query(
+      `SELECT 
+        r.*,
+        u.firstName,
+        u.lastName,
+        u.profile_image as client_image,
+        DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') as created_at
+       FROM ratings r
+       JOIN users u ON u.user_id = r.client_id
+       WHERE r.skilled_id = ?
+       ORDER BY r.created_at DESC
+       LIMIT 10`,
+      [id],
+    );
+
+    // Calculate distance if lat/lng provided
+    let distance = null;
+    if (
+      req.query.lat &&
+      req.query.lng &&
+      profile.latitude &&
+      profile.longitude
+    ) {
+      const lat = parseFloat(req.query.lat);
+      const lng = parseFloat(req.query.lng);
+
+      // Haversine formula
+      const R = 6371; // Earth's radius in km
+      const dLat = ((profile.latitude - lat) * Math.PI) / 180;
+      const dLon = ((profile.longitude - lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat * Math.PI) / 180) *
+          Math.cos((profile.latitude * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      distance = R * c;
+    }
+
+    res.json({
+      profile: {
+        ...profile,
+        skills,
+        fullName: `${profile.firstName} ${profile.lastName}`,
+        distance: distance ? parseFloat(distance).toFixed(1) : null,
+        average_rating: stats.average_rating,
+        total_ratings: stats.total_ratings,
+        hourly_rate: profile.hourly_rate || 500, // Ensure hourly_rate is included with default
+      },
+      ratings: {
+        stats,
+        recent: recentReviews,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching public profile:", error);
+    res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+// Update pricing
+export const updatePricing = async (req, res) => {
+  try {
+    const { hourly_rate } = req.body;
+
+    if (!hourly_rate || hourly_rate < 0) {
+      return res.status(400).json({ message: "Valid hourly rate is required" });
+    }
+
+    const profile = await ensureProfileExists(req.user.id);
+    if (!profile) {
+      return res.status(404).json({ message: "Skilled profile not found" });
+    }
+
+    await pool.query(
+      "UPDATE skilled_profiles SET hourly_rate = ? WHERE user_id = ?",
+      [hourly_rate, req.user.id],
+    );
+
+    res.status(200).json({
+      message: "Pricing updated successfully",
+      hourly_rate,
+    });
+  } catch (error) {
+    console.error("Error updating pricing:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+// Get pricing
+export const getPricing = async (req, res) => {
+  try {
+    const profile = await ensureProfileExists(req.user.id);
+    if (!profile) {
+      return res.status(404).json({ message: "Skilled profile not found" });
+    }
+
+    const [result] = await pool.query(
+      "SELECT hourly_rate FROM skilled_profiles WHERE user_id = ?",
+      [req.user.id],
+    );
+
+    res.json({ hourly_rate: result[0].hourly_rate || 500 });
+  } catch (error) {
+    console.error("Error fetching pricing:", error);
+    res.status(500).json({ message: "Something went wrong" });
   }
 };

@@ -10,6 +10,11 @@ import skilledProfileRoutes from "./routes/skilled.routes.js";
 import skillProfileRoutes from "./routes/skill.routes.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import userSettingsRoutes from "./routes/userSetting.routes.js";
+import bookingRoutes from "./routes/booking.routes.js";
+import favoritesRoutes from "./routes/favorites.routes.js";
+import ratingRoutes from "./routes/rating.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
@@ -57,7 +62,12 @@ const limiter = rateLimit({
 });
 
 // Routes
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/ratings", ratingRoutes);
+app.use("/api/user", userSettingsRoutes);
 app.use("/api/auth", limiter, authRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/favorites", favoritesRoutes);
 app.use("/auth", passportRoute);
 app.use("/api/skilled_profiles", skilledProfileRoutes);
 app.use("/api/skill", skillProfileRoutes);
