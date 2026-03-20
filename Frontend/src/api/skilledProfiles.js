@@ -197,3 +197,39 @@ export const updateContactInfo = async (data) => {
     throw error
   }
 }
+
+export const getPublicSkilledProfile = async (skilledId, lat = null, lng = null) => {
+  try {
+    let url = `/skilled_profiles/public/${skilledId}`
+    if (lat && lng) {
+      url += `?lat=${lat}&lng=${lng}`
+    }
+    const response = await API.get(url)
+    return response.data
+  } catch (error) {
+    console.error('Error fetching public profile:', error)
+    throw error
+  }
+}
+
+// Update pricing
+export const updateProfilePricing = async (data) => {
+  try {
+    const response = await API.put('/skilled_profiles/pricing', data, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error updating pricing:', error)
+    throw error
+  }
+}
+
+// Get pricing
+export const getProfilePricing = async () => {
+  try {
+    const response = await API.get('/skilled_profiles/pricing', getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching pricing:', error)
+    throw error
+  }
+}

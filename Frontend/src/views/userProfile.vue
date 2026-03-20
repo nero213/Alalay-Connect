@@ -1,1538 +1,1228 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import noSearchNavbar from '@/components/noSearchNavbar.vue'
 import {
-  getCompleteProfile,
-  updateSkilledLocation,
-  addSkillsToProfile,
-  removeSkillFromProfile,
-  uploadGovID,
-  uploadCertificate,
-  uploadProfileImage,
-} from '@/api/skilledProfiles'
+    getUserProfile,
+    updateUserProfile,
+    changePassword,
+    updateNotificationSettings,
+    uploadUserProfileImage,
+    deleteAccount
+} from '@/api/userService'
+import { getFavorites, removeFromFavorites } from '@/api/favoritesService'
 
-import { getAllSkills } from '@/api/skilledProfiles'
-import { updateProfileBio } from '@/api/skilledProfiles'
-import NoSearchNavbar from '@/components/noSearchNavbar.vue'
-
-const showFileInput = ref(false)
-const selectedFile = ref(null)
-const uploading = ref(false)
+const route = useRoute()
 const router = useRouter()
-const profile = ref(null)
 const loading = ref(true)
-const error = ref('')
-const message = ref('')
-const editMode = ref(null) // 'bio', 'location', 'skills', 'files'
-const selectedSkills = ref([])
-const availableSkills = ref([])
+const user = ref(null)
+const settings = ref({})
+const favorites = ref([])
+const activeTab = ref('profile')
+const editMode = ref(false)
+const showDeleteConfirm = ref(false)
+const deletePassword = ref('')
+const fileInput = ref(null)
 
-// Computed properties
-const completionColor = computed(() => {
-  const percentage = profile.value?.completion?.percentage || 0
-  if (percentage < 30) return '#ef4444'
-  if (percentage < 70) return '#f59e0b'
-  return '#10b981'
+// Stats
+const stats = ref({
+    bookings: 0,
+    reviews: 0,
+    favorites: 0
 })
 
+// Edit form
+const editForm = reactive({
+    firstName: '',
+    lastName: '',
+    phone: ''
+})
+
+// Password form
+const passwordForm = reactive({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+})
+
+// Profile image URL
 const profileImageUrl = computed(() => {
-  if (!profile.value?.profile_image) return '/default-avatar.png'
-
-  let imagePath = profile.value.profile_image
-
-  // Replace backslashes with forward slashes
-  imagePath = imagePath.replace(/\\/g, '/')
-
-  // Make sure it starts with /uploads
-  if (!imagePath.startsWith('/uploads')) {
-    // If it's just a filename like "1768311816029.png"
-    if (!imagePath.includes('/')) {
-      imagePath = `/uploads/${imagePath}`
-    } else {
-      // Extract just the filename and add /uploads/
-      const filename = imagePath.split('/').pop().split('\\').pop()
-      imagePath = `/uploads/${filename}`
+    if (!user.value?.profile_image) return '/default-avatar.png'
+    let imagePath = user.value.profile_image.replace(/\\/g, '/')
+    if (!imagePath.startsWith('/uploads')) {
+        imagePath = `/uploads/${imagePath.split('/').pop()}`
     }
-  }
-
-  return `http://localhost:3000${imagePath}`
+    return `http://localhost:3000${imagePath}`
 })
 
-// Load profile data
-const loadProfile = async () => {
-  try {
-    loading.value = true
-    const response = await getCompleteProfile()
-    profile.value = response.profile
-  } catch (err) {
-    console.error('Failed to load profile:', err)
-    error.value = 'Failed to load profile. Please try again.'
-  } finally {
-    loading.value = false
-  }
+// Password strength
+const passwordStrength = computed(() => {
+    const pwd = passwordForm.newPassword
+    if (!pwd) return 0
+    let strength = 0
+    if (pwd.length >= 8) strength += 25
+    if (/[A-Z]/.test(pwd)) strength += 25
+    if (/[0-9]/.test(pwd)) strength += 25
+    if (/[^A-Za-z0-9]/.test(pwd)) strength += 25
+    return strength
+})
+
+const passwordStrengthClass = computed(() => {
+    if (passwordStrength.value < 50) return 'weak'
+    if (passwordStrength.value < 75) return 'medium'
+    return 'strong'
+})
+
+const passwordStrengthText = computed(() => {
+    if (passwordStrength.value < 50) return 'Weak'
+    if (passwordStrength.value < 75) return 'Medium'
+    return 'Strong'
+})
+
+const passwordMismatch = computed(() => {
+    return passwordForm.newPassword && passwordForm.confirmPassword &&
+        passwordForm.newPassword !== passwordForm.confirmPassword
+})
+
+// Load user data
+const loadUserData = async () => {
+    try {
+        loading.value = true
+        const data = await getUserProfile()
+        user.value = data.user
+        settings.value = data.settings
+
+        // Set edit form values
+        editForm.firstName = data.user.firstName
+        editForm.lastName = data.user.lastName
+        editForm.phone = data.user.phone || ''
+
+        // Load favorites
+        await loadFavorites()
+
+        // Load stats
+        await loadStats()
+    } catch (error) {
+        console.error('Error loading profile:', error)
+    } finally {
+        loading.value = false
+    }
 }
 
-// Edit sections
-const startEdit = (section) => {
-  editMode.value = section
-  if (section === 'skills') {
-    loadAvailableSkills()
-  } else if (section === 'profile') {
-    showFileInput.value = true
-    triggerFileUpload()
-  }
+// Load favorites
+const loadFavorites = async () => {
+    try {
+        const response = await getFavorites()
+        favorites.value = response.favorites
+        stats.value.favorites = response.favorites.length
+    } catch (error) {
+        console.error('Error loading favorites:', error)
+    }
 }
+
+// Load stats (implement when endpoints are ready)
+const loadStats = async () => {
+    try {
+        // TODO: Add endpoints for bookings count and reviews count
+        // For now, keep as 0
+    } catch (error) {
+        console.error('Error loading stats:', error)
+    }
+}
+
+// Profile image upload
+const triggerImageUpload = () => {
+    fileInput.value.click()
+}
+
+const handleImageUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    try {
+        const response = await uploadUserProfileImage(file)
+        user.value.profile_image = response.imageUrl
+        alert('Profile image updated successfully!')
+    } catch (error) {
+        console.error('Error uploading image:', error)
+        alert('Failed to upload image')
+    }
+}
+
+// Profile editing
+const startEdit = () => {
+    editMode.value = true
+}
+
 const cancelEdit = () => {
-  editMode.value = null
-  selectedSkills.value = []
-  showFileInput.value = false
-  selectedFile.value = null
+    editMode.value = false
+    editForm.firstName = user.value.firstName
+    editForm.lastName = user.value.lastName
+    editForm.phone = user.value.phone || ''
 }
 
-const handleImageSelect = (event) => {
-  selectedFile.value = event.target.files[0]
-  if (selectedFile.value) {
-    uploadProfileImageFile()
-  }
+const saveProfile = async () => {
+    try {
+        const response = await updateUserProfile({
+            firstName: editForm.firstName,
+            lastName: editForm.lastName,
+            phone: editForm.phone
+        })
+        user.value = response.user
+        editMode.value = false
+        alert('Profile updated successfully!')
+    } catch (error) {
+        console.error('Error saving profile:', error)
+        alert('Failed to update profile')
+    }
 }
 
-const uploadProfileImageFile = async () => {
-  if (!selectedFile.value) return
+// Change password
+const changeUserPassword = async () => {
+    if (passwordMismatch.value) return
 
-  uploading.value = true
-  error.value = ''
+    try {
+        await changePassword({
+            currentPassword: passwordForm.currentPassword,
+            newPassword: passwordForm.newPassword
+        })
 
-  try {
-    await uploadProfileImage(selectedFile.value)
-    await loadProfile() // Reload profile to get new image
-    message.value = 'Profile image updated successfully!'
-    setTimeout(() => (message.value = ''), 3000)
-    cancelEdit() // Reset edit mode
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to upload image'
-  } finally {
-    uploading.value = false
-  }
+        // Clear form
+        passwordForm.currentPassword = ''
+        passwordForm.newPassword = ''
+        passwordForm.confirmPassword = ''
+
+        alert('Password changed successfully')
+    } catch (error) {
+        alert(error.response?.data?.message || 'Failed to change password')
+    }
 }
 
-const triggerFileUpload = () => {
-  // Create a hidden file input and trigger click
-  const fileInput = document.createElement('input')
-  fileInput.type = 'file'
-  fileInput.accept = 'image/*'
-  fileInput.onchange = handleImageSelect
-  fileInput.click()
+// Save notification settings
+const saveSettings = async () => {
+    try {
+        const response = await updateNotificationSettings(settings.value)
+        settings.value = response.settings
+        alert('Settings saved successfully')
+    } catch (error) {
+        console.error('Error saving settings:', error)
+    }
 }
-// Update bio
-const updateBio = async () => {
-  try {
-    // Add your update bio API call here
-    await updateProfileBio({
-      bio: profile.value.bio,
-      years_experience: profile.value.years_experience,
+
+// Delete account
+const confirmDelete = async () => {
+    try {
+        await deleteAccount(deletePassword.value)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        router.push('/login')
+    } catch (error) {
+        alert(error.response?.data?.message || 'Failed to delete account')
+    }
+}
+
+// Remove favorite
+const removeFavorite = async (skilledId) => {
+    if (!confirm('Remove this professional from your favorites?')) return
+
+    try {
+        await removeFromFavorites(skilledId)
+        await loadFavorites()
+        alert('Removed from favorites')
+    } catch (error) {
+        console.error('Error removing favorite:', error)
+        alert('Failed to remove from favorites')
+    }
+}
+
+// Format date
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
     })
-    message.value = 'Profile updated successfully!'
-    setTimeout(() => (message.value = ''), 3000)
-    editMode.value = null
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to update profile'
-    console.log(profile.value.years_experience)
-    console.log(profile.value.bio)
-  }
 }
 
-// Update location
-const updateLocation = async () => {
-  try {
-    await updateSkilledLocation({
-      latitude: profile.value.latitude,
-      longitude: profile.value.longitude,
-      barangay: profile.value.barangay,
-      city: profile.value.city,
-    })
-    message.value = 'Location updated successfully!'
-    setTimeout(() => (message.value = ''), 3000)
-    editMode.value = null
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to update location'
-  }
+// View profile
+const viewProfile = (skilledId) => {
+    router.push(`/skilled-profile/${skilledId}`)
 }
 
-// Skills management
-const loadAvailableSkills = async () => {
-  try {
-    const response = await getAllSkills()
-    availableSkills.value = response
-  } catch (err) {
-    console.error('Failed to load skills:', err)
-  }
+// Book now
+const bookNow = (skilledId) => {
+    router.push(`/booking/${skilledId}`)
 }
 
-const addSkills = async () => {
-  if (selectedSkills.value.length === 0) return
-
-  try {
-    await addSkillsToProfile(selectedSkills.value)
-    await loadProfile() // Reload profile to get updated skills
-    message.value = 'Skills added successfully!'
-    setTimeout(() => (message.value = ''), 3000)
-    editMode.value = null
-    selectedSkills.value = []
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to add skills'
-  }
+// Get rating stars
+const getRatingStars = (rating) => {
+    const fullStars = Math.floor(rating || 0)
+    return '★'.repeat(fullStars) + '☆'.repeat(5 - fullStars)
 }
 
-const removeSkill = async (skillId) => {
-  if (!confirm('Are you sure you want to remove this skill?')) return
-
-  try {
-    await removeSkillFromProfile(skillId)
-    await loadProfile()
-    message.value = 'Skill removed successfully!'
-    setTimeout(() => (message.value = ''), 3000)
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to remove skill'
-  }
-}
-
-// File uploads
-const handleFileUpload = async (event, type) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  try {
-    let response
-    if (type === 'gov') response = await uploadGovID(file)
-    if (type === 'cert') response = await uploadCertificate(file)
-    if (type === 'profile') response = await uploadProfileImage(file)
-
-    await loadProfile() // Reload to show new image
-    message.value = `${type} uploaded successfully!`
-    setTimeout(() => (message.value = ''), 3000)
-    editMode.value = null
-  } catch (err) {
-    error.value = err.response?.data?.message || `Failed to upload ${type}`
-  }
-}
-
-// Get new location
-const refreshLocation = () => {
-  if (!navigator.geolocation) {
-    error.value = 'Geolocation is not supported by your browser.'
-    return
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      profile.value.latitude = position.coords.latitude
-      profile.value.longitude = position.coords.longitude
-      await updateLocation()
-    },
-    (err) => {
-      console.error('Geolocation error:', err)
-      error.value = 'Unable to get your location.'
-    },
-    { enableHighAccuracy: true, timeout: 10000 },
-  )
+// Get worker image
+const getWorkerImage = (imagePath) => {
+    if (!imagePath) return '/default-avatar.png'
+    let formattedPath = imagePath.replace(/\\/g, '/')
+    if (!formattedPath.startsWith('/uploads')) {
+        formattedPath = `/uploads/${formattedPath.split('/').pop()}`
+    }
+    return `http://localhost:3000${formattedPath}`
 }
 
 onMounted(() => {
-  loadProfile()
+    loadUserData()
+
+    // Check for tab parameter in URL
+    const tabParam = route.query.tab
+    if (tabParam === 'security') {
+        activeTab.value = 'security'
+    } else if (tabParam === 'notifications') {
+        activeTab.value = 'notifications'
+    } else if (tabParam === 'favorites') {
+        activeTab.value = 'favorites'
+    }
 })
 </script>
 
 <template>
-  <noSearchNavbar />
-  <div class="profile-page">
-    <div class="profile-container">
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading your profile...</p>
-      </div>
+    <div class="profile-page">
+        <noSearchNavbar />
 
-      <!-- Error Display -->
-      <div v-else-if="error" class="error-state">
-        <div class="error-icon">⚠️</div>
-        <p>{{ error }}</p>
-        <button @click="loadProfile" class="retry-btn">
-          <span>⟳</span> Try Again
-        </button>
-      </div>
+        <div class="profile-container">
+            <div class="profile-sidebar">
+                <div class="profile-card">
+                    <div class="profile-image-section">
+                        <div class="profile-image-wrapper">
+                            <img :src="profileImageUrl" :alt="user?.firstName" class="profile-image">
+                            <button @click="triggerImageUpload" class="image-upload-btn">
+                                <span class="camera-icon">📷</span>
+                            </button>
+                            <input type="file" ref="fileInput" @change="handleImageUpload" accept="image/*"
+                                class="hidden-input">
+                        </div>
+                        <h2>{{ user?.firstName }} {{ user?.lastName }}</h2>
+                        <p class="user-email">{{ user?.email }}</p>
+                        <span class="user-role" :class="user?.role">{{ user?.role }}</span>
+                    </div>
 
-      <!-- Profile Content -->
-      <div v-else-if="profile" class="profile-content">
-        <!-- Success Message -->
-        <transition name="slide-down">
-          <div v-if="message" class="success-toast">
-            <span class="success-icon">✓</span>
-            {{ message }}
-          </div>
-        </transition>
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">{{ stats.bookings }}</span>
+                            <span class="stat-label">Bookings</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ stats.reviews }}</span>
+                            <span class="stat-label">Reviews</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ stats.favorites }}</span>
+                            <span class="stat-label">Favorites</span>
+                        </div>
+                    </div>
 
-        <!-- Profile Header -->
-        <div class="profile-header">
-          <div class="header-cover">
-            <div class="cover-gradient"></div>
-          </div>
-          
-          <div class="header-content">
-            <div class="profile-image-wrapper">
-              <div class="profile-image">
-                <img :src="profileImageUrl" :alt="profile.firstName" />
-                <div v-if="uploading" class="image-uploading">
-                  <div class="spinner-small"></div>
+                    <div class="profile-menu">
+                        <button @click="activeTab = 'profile'"
+                            :class="['menu-item', { active: activeTab === 'profile' }]">
+                            <span class="menu-icon">👤</span>
+                            Personal Info
+                        </button>
+                        <button @click="activeTab = 'security'"
+                            :class="['menu-item', { active: activeTab === 'security' }]">
+                            <span class="menu-icon">🔒</span>
+                            Security
+                        </button>
+                        <button @click="activeTab = 'notifications'"
+                            :class="['menu-item', { active: activeTab === 'notifications' }]">
+                            <span class="menu-icon">🔔</span>
+                            Notifications
+                        </button>
+                        <button @click="activeTab = 'favorites'"
+                            :class="['menu-item', { active: activeTab === 'favorites' }]">
+                            <span class="menu-icon">❤️</span>
+                            Favorites
+                        </button>
+                    </div>
                 </div>
-              </div>
-              <button @click="startEdit('profile')" class="change-photo-btn">
-                <span class="btn-icon">📷</span>
-                Change Photo
-              </button>
             </div>
 
-            <div class="profile-info">
-              <h1 class="profile-name">{{ profile.firstName }} {{ profile.lastName }}</h1>
-              <div class="profile-meta">
-                <span class="member-badge">
-                  <span class="badge-icon">🗓️</span>
-                  Member since {{ new Date(profile.member_since).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) }}
-                </span>
-                <span class="status-badge" :class="profile.verification_status">
-                  <span class="status-icon" v-if="profile.verification_status === 'approved'">✓</span>
-                  <span class="status-icon" v-else-if="profile.verification_status === 'pending'">⏳</span>
-                  <span class="status-icon" v-else>!</span>
-                  {{ profile.verification_status === 'approved' ? 'Verified Professional' : 
-                     profile.verification_status === 'pending' ? 'Verification Pending' : 'Not Verified' }}
-                </span>
-              </div>
-            </div>
+            <div class="profile-content">
+                <!-- Personal Info Tab -->
+                <div v-if="activeTab === 'profile'" class="content-card">
+                    <h2>Personal Information</h2>
 
-            <!-- Profile Completion Card -->
-            <div class="completion-card">
-              <div class="completion-header">
-                <span class="completion-title">Profile Strength</span>
-                <span class="completion-percentage">{{ profile.completion.percentage }}%</span>
-              </div>
-              <div class="progress-track">
-                <div class="progress-bar">
-                  <div
-                    class="progress-fill"
-                    :style="{
-                      width: profile.completion.percentage + '%',
-                      backgroundColor: completionColor,
-                    }"
-                  ></div>
+                    <div v-if="editMode" class="edit-form">
+                        <div class="form-group">
+                            <label>First Name</label>
+                            <input type="text" v-model="editForm.firstName" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" v-model="editForm.lastName" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="tel" v-model="editForm.phone" class="form-input">
+                        </div>
+                        <div class="form-actions">
+                            <button @click="saveProfile" class="btn-save">Save Changes</button>
+                            <button @click="cancelEdit" class="btn-cancel">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div v-else class="info-display">
+                        <div class="info-row">
+                            <span class="info-label">First Name</span>
+                            <span class="info-value">{{ user?.firstName }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Last Name</span>
+                            <span class="info-value">{{ user?.lastName }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email</span>
+                            <span class="info-value">{{ user?.email }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Phone</span>
+                            <span class="info-value">{{ user?.phone || 'Not provided' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Member Since</span>
+                            <span class="info-value">{{ formatDate(user?.created_at) }}</span>
+                        </div>
+                        <button @click="startEdit" class="btn-edit">Edit Profile</button>
+                    </div>
                 </div>
-              </div>
-              <div class="completion-message" :style="{ color: completionColor }">
-                <span v-if="profile.completion.percentage < 30">Complete your profile to get more clients</span>
-                <span v-else-if="profile.completion.percentage < 70">You're getting there! Keep going</span>
-                <span v-else>Excellent! Your profile looks great</span>
-              </div>
+
+                <!-- Security Tab -->
+                <div v-if="activeTab === 'security'" class="content-card">
+                    <h2>Security Settings</h2>
+
+                    <div class="password-form">
+                        <h3>Change Password</h3>
+                        <div class="form-group">
+                            <label>Current Password</label>
+                            <input type="password" v-model="passwordForm.currentPassword" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" v-model="passwordForm.newPassword" class="form-input">
+                            <div class="password-strength" v-if="passwordForm.newPassword">
+                                <div class="strength-bar">
+                                    <div class="strength-fill" :class="passwordStrengthClass"
+                                        :style="{ width: passwordStrength + '%' }"></div>
+                                </div>
+                                <span>{{ passwordStrengthText }}</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm New Password</label>
+                            <input type="password" v-model="passwordForm.confirmPassword" class="form-input">
+                            <span v-if="passwordMismatch" class="error-text">Passwords do not match</span>
+                        </div>
+                        <button @click="changeUserPassword" class="btn-save">Update Password</button>
+                    </div>
+
+                    <div class="danger-zone">
+                        <h3>Danger Zone</h3>
+                        <p>Once you delete your account, there is no going back. Please be certain.</p>
+                        <button @click="showDeleteConfirm = true" class="btn-delete">Delete Account</button>
+                    </div>
+                </div>
+
+                <!-- Notifications Tab -->
+                <div v-if="activeTab === 'notifications'" class="content-card">
+                    <h2>Notification Preferences</h2>
+
+                    <div class="settings-group">
+                        <div class="setting-item">
+                            <div>
+                                <h4>Email Notifications</h4>
+                                <p>Receive updates via email</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" v-model="settings.email_notifications">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <h4>Push Notifications</h4>
+                                <p>Receive browser notifications</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" v-model="settings.push_notifications">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <h4>SMS Notifications</h4>
+                                <p>Receive text message alerts</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" v-model="settings.sms_notifications">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <h4>Language</h4>
+                                <p>Choose your preferred language</p>
+                            </div>
+                            <select v-model="settings.language" class="language-select">
+                                <option value="en">English</option>
+                                <option value="fil">Filipino</option>
+                                <option value="ceb">Cebuano</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <h4>Theme</h4>
+                                <p>Choose your preferred theme</p>
+                            </div>
+                            <select v-model="settings.theme" class="theme-select">
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                                <option value="system">System</option>
+                            </select>
+                        </div>
+
+                        <button @click="saveSettings" class="btn-save">Save Preferences</button>
+                    </div>
+                </div>
+
+                <!-- Favorites Tab -->
+                <div v-if="activeTab === 'favorites'" class="content-card">
+                    <h2>Favorite Professionals</h2>
+
+                    <div v-if="favorites.length" class="favorites-grid">
+                        <div v-for="fav in favorites" :key="fav.favorite_id" class="favorite-card">
+                            <img :src="getWorkerImage(fav.profile_image)" :alt="fav.fullName">
+                            <div class="favorite-info">
+                                <h4>{{ fav.fullName }}</h4>
+                                <p>{{ fav.skill_name }}</p>
+                                <div class="rating">
+                                    <span class="stars">{{ getRatingStars(fav.average_rating) }}</span>
+                                    <span>({{ fav.total_ratings }})</span>
+                                </div>
+                            </div>
+                            <div class="favorite-actions">
+                                <button @click="viewProfile(fav.skilled_id)" class="view-btn" title="View Profile">
+                                    👁️
+                                </button>
+                                <button @click="bookNow(fav.skilled_id)" class="book-btn" title="Book Now">
+                                    📅
+                                </button>
+                                <button @click="removeFavorite(fav.skilled_id)" class="remove-fav" title="Remove">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="empty-state">
+                        <p>No favorites yet</p>
+                        <router-link to="/dashboard" class="browse-link">Browse Professionals</router-link>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
 
-        <!-- Main Profile Grid -->
-        <div class="profile-grid">
-          <!-- Left Column -->
-          <div class="grid-column">
-            <!-- Bio Section -->
-            <div class="section-card">
-              <div class="section-header">
-                <div class="header-left">
-                  <span class="section-icon">📝</span>
-                  <h3>About Me</h3>
+        <!-- Delete Confirmation Modal -->
+        <div v-if="showDeleteConfirm" class="modal">
+            <div class="modal-content">
+                <h3>Delete Account</h3>
+                <p>This action cannot be undone. Please enter your password to confirm.</p>
+                <input type="password" v-model="deletePassword" placeholder="Enter your password" class="modal-input">
+                <div class="modal-actions">
+                    <button @click="confirmDelete" class="btn-delete">Delete</button>
+                    <button @click="showDeleteConfirm = false" class="btn-cancel">Cancel</button>
                 </div>
-                <button v-if="editMode !== 'bio'" @click="startEdit('bio')" class="section-action">
-                  <span class="action-icon">✎</span>
-                  Edit
-                </button>
-              </div>
-
-              <div v-if="editMode === 'bio'" class="edit-section">
-                <div class="form-group">
-                  <label>Bio</label>
-                  <textarea
-                    v-model="profile.bio"
-                    placeholder="Tell clients about yourself, your experience, and what makes you unique..."
-                    rows="4"
-                    class="form-textarea"
-                  ></textarea>
-                </div>
-                <div class="form-group">
-                  <label>Years of Experience</label>
-                  <input
-                    type="number"
-                    v-model="profile.years_experience"
-                    placeholder="e.g., 5"
-                    min="0"
-                    class="form-input"
-                  />
-                </div>
-                <div class="form-actions">
-                  <button @click="updateBio" class="btn-save">
-                    <span class="btn-icon">✓</span> Save Changes
-                  </button>
-                  <button @click="cancelEdit" class="btn-cancel">
-                    <span class="btn-icon">✕</span> Cancel
-                  </button>
-                </div>
-              </div>
-
-              <div v-else class="section-content">
-                <div class="bio-content">
-                  <p class="bio-text">{{ profile.bio || 'No bio added yet. Tell clients about yourself!' }}</p>
-                  <div class="experience-badge">
-                    <span class="badge-icon">⏱️</span>
-                    <strong>{{ profile.years_experience || 0 }} years of experience</strong>
-                  </div>
-                </div>
-              </div>
             </div>
-
-            <!-- Location Section -->
-            <div class="section-card">
-              <div class="section-header">
-                <div class="header-left">
-                  <span class="section-icon">📍</span>
-                  <h3>Location</h3>
-                </div>
-                <button v-if="editMode !== 'location'" @click="startEdit('location')" class="section-action">
-                  <span class="action-icon">✎</span>
-                  Update
-                </button>
-              </div>
-
-              <div v-if="editMode === 'location'" class="edit-section">
-                <div class="location-preview">
-                  <div class="current-location">
-                    <span class="location-icon">📍</span>
-                    <span>{{ profile.barangay !== 'Unknown' ? profile.barangay : 'No location' }}, {{ profile.city !== 'Unknown' ? profile.city : 'No city' }}</span>
-                  </div>
-                </div>
-                <button @click="refreshLocation" class="btn-refresh">
-                  <span class="btn-icon">⟳</span> Refresh My Location
-                </button>
-                <div class="form-actions">
-                  <button @click="cancelEdit" class="btn-cancel">Cancel</button>
-                </div>
-              </div>
-
-              <div v-else class="section-content">
-                <div class="location-display">
-                  <span class="location-icon-large">📍</span>
-                  <div class="location-details">
-                    <p v-if="profile.barangay && profile.barangay !== 'Unknown'" class="location-text">
-                      {{ profile.barangay }}, {{ profile.city }}
-                    </p>
-                    <p v-else class="location-text location-muted">
-                      Location not set. Update your location to appear in searches.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column -->
-          <div class="grid-column">
-            <!-- Skills Section -->
-            <div class="section-card">
-              <div class="section-header">
-                <div class="header-left">
-                  <span class="section-icon">🔧</span>
-                  <h3>Skills <span class="skill-count">{{ profile.skills.length }}</span></h3>
-                </div>
-                <button v-if="editMode !== 'skills'" @click="startEdit('skills')" class="section-action">
-                  <span class="action-icon">+</span>
-                  Add Skills
-                </button>
-              </div>
-
-              <div v-if="editMode === 'skills'" class="edit-section">
-                <p class="section-hint">Select skills you want to add:</p>
-                <div class="skills-selector">
-                  <div
-                    v-for="skill in availableSkills"
-                    :key="skill.skill_id"
-                    @click="
-                      selectedSkills.includes(skill.skill_id)
-                        ? (selectedSkills = selectedSkills.filter((id) => id !== skill.skill_id))
-                        : selectedSkills.push(skill.skill_id)
-                    "
-                    :class="['skill-chip', { 'chip-selected': selectedSkills.includes(skill.skill_id) }]"
-                  >
-                    {{ skill.name }}
-                    <span v-if="selectedSkills.includes(skill.skill_id)" class="chip-check">✓</span>
-                  </div>
-                </div>
-                <div class="form-actions">
-                  <button @click="addSkills" class="btn-save" :disabled="!selectedSkills.length">
-                    Add Selected ({{ selectedSkills.length }})
-                  </button>
-                  <button @click="cancelEdit" class="btn-cancel">Cancel</button>
-                </div>
-              </div>
-
-              <div v-else class="section-content">
-                <div v-if="profile.skills.length" class="skills-container">
-                  <div v-for="skill in profile.skills" :key="skill.skill_id" class="skill-item">
-                    <span class="skill-name">{{ skill.name }}</span>
-                    <button @click="removeSkill(skill.skill_id)" class="skill-remove" title="Remove skill">×</button>
-                  </div>
-                </div>
-                <div v-else class="empty-state">
-                  <span class="empty-icon">🔧</span>
-                  <p class="empty-text">No skills added yet</p>
-                  <p class="empty-hint">Add skills to get hired faster</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Documents Section -->
-            <div class="section-card">
-              <div class="section-header">
-                <div class="header-left">
-                  <span class="section-icon">📄</span>
-                  <h3>Documents</h3>
-                </div>
-                <button v-if="editMode !== 'files'" @click="startEdit('files')" class="section-action">
-                  <span class="action-icon">↑</span>
-                  Upload
-                </button>
-              </div>
-
-              <div v-if="editMode === 'files'" class="edit-section">
-                <div class="file-upload-group">
-                  <label class="file-label">
-                    <span class="file-icon">🆔</span>
-                    <span>Government ID</span>
-                  </label>
-                  <div class="file-input-wrapper">
-                    <input
-                      type="file"
-                      @change="(e) => handleFileUpload(e, 'gov')"
-                      accept="image/*,.pdf"
-                      id="gov-upload"
-                      class="file-input"
-                    />
-                    <label for="gov-upload" class="file-input-btn">
-                      <span class="btn-icon">📎</span>
-                      Choose File
-                    </label>
-                  </div>
-                </div>
-
-                <div class="file-upload-group">
-                  <label class="file-label">
-                    <span class="file-icon">🎓</span>
-                    <span>Certificate</span>
-                  </label>
-                  <div class="file-input-wrapper">
-                    <input
-                      type="file"
-                      @change="(e) => handleFileUpload(e, 'cert')"
-                      accept="image/*,.pdf"
-                      id="cert-upload"
-                      class="file-input"
-                    />
-                    <label for="cert-upload" class="file-input-btn">
-                      <span class="btn-icon">📎</span>
-                      Choose File
-                    </label>
-                  </div>
-                </div>
-
-                <div class="form-actions">
-                  <button @click="cancelEdit" class="btn-cancel">Done</button>
-                </div>
-              </div>
-
-              <div v-else class="section-content">
-                <div class="documents-list">
-                  <div class="document-item" :class="{ 'document-present': profile.gov_id }">
-                    <span class="document-icon">{{ profile.gov_id ? '✅' : '⬜' }}</span>
-                    <span class="document-name">Government ID</span>
-                    <span class="document-status">{{ profile.gov_id ? 'Uploaded' : 'Not uploaded' }}</span>
-                  </div>
-                  <div class="document-item" :class="{ 'document-present': profile.certificate }">
-                    <span class="document-icon">{{ profile.certificate ? '✅' : '⬜' }}</span>
-                    <span class="document-name">Certificate</span>
-                    <span class="document-status">{{ profile.certificate ? 'Uploaded' : 'Not uploaded' }}</span>
-                  </div>
-                </div>
-                
-                <div v-if="!profile.gov_id || !profile.certificate" class="document-note">
-                  <span class="note-icon">ℹ️</span>
-                  <span class="note-text">Upload required documents for verification</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
-
-        <!-- Action Buttons -->
-        <div class="profile-footer">
-          <router-link to="/dashboard" class="footer-btn footer-btn-secondary">
-            <span class="btn-icon">←</span>
-            Back to Dashboard
-          </router-link>
-          <div class="verification-status-footer">
-            <span class="status-indicator" :class="profile.verification_status"></span>
-            <span v-if="profile.verification_status === 'approved'" class="status-text verified">
-              ✓ Verified Professional
-            </span>
-            <span v-else-if="profile.verification_status === 'pending'" class="status-text pending">
-              ⏳ Verification Pending
-            </span>
-            <span v-else class="status-text unverified">
-              ! Not Verified
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
 </template>
 
 <style scoped>
+/* Keep all your existing styles */
 .profile-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    background: #f8fafc;
 }
 
 .profile-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
+    max-width: 1200px;
+    margin: 80px auto 2rem;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 2rem;
 }
 
-/* Loading State */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  gap: 1.5rem;
+/* Sidebar */
+.profile-sidebar {
+    position: sticky;
+    top: 100px;
+    height: fit-content;
 }
 
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #e0e7ff;
-  border-top: 4px solid #4f46e5;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.profile-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-.spinner-small {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(255,255,255,0.3);
-  border-top: 3px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Error State */
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  gap: 1rem;
-  text-align: center;
-}
-
-.error-icon {
-  font-size: 3rem;
-}
-
-.retry-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.retry-btn:hover {
-  background: #4338ca;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
-}
-
-/* Success Toast */
-.success-toast {
-  position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #10b981;
-  color: white;
-  padding: 0.75rem 2rem;
-  border-radius: 50px;
-  font-weight: 500;
-  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  animation: slideDown 0.3s ease;
-}
-
-.success-icon {
-  font-size: 1.2rem;
-  font-weight: bold;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -20px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-
-/* Profile Header */
-.profile-header {
-  background: white;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
-  margin-bottom: 2rem;
-}
-
-.header-cover {
-  height: 120px;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  position: relative;
-}
-
-.cover-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
-}
-
-.header-content {
-  padding: 0 2rem 2rem;
-  position: relative;
+.profile-image-section {
+    text-align: center;
+    margin-bottom: 1.5rem;
 }
 
 .profile-image-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: -60px;
-  margin-bottom: 1rem;
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1rem;
 }
 
 .profile-image {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  border: 4px solid white;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  position: relative;
-  margin-bottom: 0.5rem;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #4f46e5;
 }
 
-.profile-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.image-upload-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 36px;
+    height: 36px;
+    background: #4f46e5;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-.image-uploading {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.image-upload-btn:hover {
+    background: #4338ca;
+    transform: scale(1.1);
 }
 
-.change-photo-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 30px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #4f46e5;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+.camera-icon {
+    color: white;
+    font-size: 1.1rem;
 }
 
-.change-photo-btn:hover {
-  background: #f8fafc;
-  border-color: #4f46e5;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
+.hidden-input {
+    display: none;
 }
 
-.profile-info {
-  text-align: center;
-  margin-bottom: 1.5rem;
+.user-role {
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
 }
 
-.profile-name {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
+.user-role.skilled {
+    background: #d1fae5;
+    color: #065f46;
 }
 
-.profile-meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  flex-wrap: wrap;
+.user-role.resident {
+    background: #e0e7ff;
+    color: #4f46e5;
 }
 
-.member-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 1rem;
-  background: #f1f5f9;
-  border-radius: 30px;
-  font-size: 0.9rem;
-  color: #475569;
+.user-role.admin {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 1.2rem;
-  border-radius: 30px;
-  font-size: 0.9rem;
-  font-weight: 600;
+/* Stats */
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 1.5rem;
 }
 
-.status-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
+.stat-item {
+    text-align: center;
 }
 
-.status-badge.approved {
-  background: #d1fae5;
-  color: #065f46;
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
 }
 
-.status-badge:not(.pending):not(.approved) {
-  background: #fee2e2;
-  color: #991b1b;
+.stat-label {
+    font-size: 0.85rem;
+    color: #64748b;
 }
 
-/* Completion Card */
-.completion-card {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-top: 1rem;
+/* Menu */
+.profile-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.completion-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: left;
+    width: 100%;
 }
 
-.completion-title {
-  font-weight: 600;
-  color: #334155;
+.menu-item:hover {
+    background: #f1f5f9;
+    color: #1e293b;
 }
 
-.completion-percentage {
-  font-weight: 700;
-  color: #4f46e5;
+.menu-item.active {
+    background: #e0e7ff;
+    color: #4f46e5;
+    font-weight: 500;
 }
 
-.progress-track {
-  margin-bottom: 0.75rem;
+.menu-icon {
+    font-size: 1.2rem;
 }
 
-.progress-bar {
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
+/* Content */
+.content-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
 }
 
-.progress-fill {
-  height: 100%;
-  transition: width 0.3s ease, background-color 0.3s ease;
+.content-card h2 {
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
 }
 
-.completion-message {
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-align: right;
+/* Info Display */
+.info-row {
+    display: flex;
+    padding: 1rem 0;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-/* Profile Grid */
-.profile-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+.info-row:last-child {
+    border-bottom: none;
 }
 
-.grid-column {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.info-label {
+    width: 120px;
+    color: #64748b;
 }
 
-/* Section Cards */
-.section-card {
-  background: white;
-  border-radius: 20px;
-  padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  border: 1px solid #f1f5f9;
+.info-value {
+    flex: 1;
+    color: #1e293b;
+    font-weight: 500;
 }
 
-.section-card:hover {
-  box-shadow: 0 20px 40px rgba(79, 70, 229, 0.1);
-  border-color: #e0e7ff;
+.btn-edit {
+    margin-top: 1.5rem;
+    padding: 0.75rem 2rem;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #f1f5f9;
+.btn-edit:hover {
+    background: #4338ca;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.section-icon {
-  font-size: 1.5rem;
-}
-
-.section-header h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.skill-count {
-  background: #f1f5f9;
-  color: #4f46e5;
-  padding: 0.2rem 0.6rem;
-  border-radius: 30px;
-  font-size: 0.9rem;
-}
-
-.section-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 1rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 30px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #4f46e5;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.section-action:hover {
-  background: #4f46e5;
-  border-color: #4f46e5;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(79, 70, 229, 0.2);
-}
-
-.action-icon {
-  font-size: 1rem;
-}
-
-/* Edit Section */
-.edit-section {
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Edit Form */
+.edit-form {
+    animation: slideIn 0.3s ease;
 }
 
 .form-group {
-  margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #334155;
-  font-size: 0.95rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #334155;
 }
 
-.form-textarea,
 .form-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: #f8fafc;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s;
 }
 
-.form-textarea:focus,
 .form-input:focus {
-  outline: none;
-  border-color: #4f46e5;
-  background: white;
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
 .form-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.btn-save,
-.btn-cancel {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.5rem;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+    display: flex;
+    gap: 1rem;
 }
 
 .btn-save {
-  background: #10b981;
-  color: white;
-  flex: 2;
+    flex: 2;
+    padding: 0.75rem;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-.btn-save:hover:not(:disabled) {
-  background: #059669;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
-}
-
-.btn-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-save:hover {
+    background: #059669;
 }
 
 .btn-cancel {
-  background: #f1f5f9;
-  color: #64748b;
-  flex: 1;
+    flex: 1;
+    padding: 0.75rem;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
 .btn-cancel:hover {
-  background: #e2e8f0;
-  transform: translateY(-2px);
+    background: #e2e8f0;
 }
 
-.btn-refresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #f1f5f9;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  font-weight: 600;
-  color: #4f46e5;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-  justify-content: center;
+/* Password Form */
+.password-form {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.btn-refresh:hover {
-  background: #4f46e5;
-  border-color: #4f46e5;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
+.password-form h3 {
+    color: #1e293b;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
 }
 
-/* Section Content */
-.bio-content {
-  line-height: 1.7;
+.password-strength {
+    margin-top: 0.5rem;
 }
 
-.bio-text {
-  color: #334155;
-  margin-bottom: 1rem;
-  font-size: 1rem;
+.strength-bar {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.25rem;
 }
 
-.experience-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #f1f5f9;
-  border-radius: 30px;
-  font-size: 0.95rem;
-  color: #4f46e5;
+.strength-fill {
+    height: 100%;
+    transition: width 0.3s;
 }
 
-.location-display {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 0;
+.strength-fill.weak {
+    background: #ef4444;
 }
 
-.location-icon-large {
-  font-size: 2rem;
+.strength-fill.medium {
+    background: #f59e0b;
 }
 
-.location-text {
-  font-size: 1.1rem;
-  color: #1e293b;
-  font-weight: 500;
+.strength-fill.strong {
+    background: #10b981;
 }
 
-.location-muted {
-  color: #94a3b8;
-  font-style: italic;
+.error-text {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    display: block;
 }
 
-.current-location {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 12px;
-  color: #1e293b;
+/* Danger Zone */
+.danger-zone {
+    padding: 1.5rem;
+    background: #fef2f2;
+    border-radius: 12px;
 }
 
-.location-icon {
-  font-size: 1.2rem;
+.danger-zone h3 {
+    color: #991b1b;
+    margin-bottom: 0.5rem;
 }
 
-/* Skills Selector */
-.section-hint {
-  color: #64748b;
-  margin-bottom: 1rem;
-  font-size: 0.95rem;
+.danger-zone p {
+    color: #b91c1c;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
 }
 
-.skills-selector {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 0.75rem;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 0.5rem;
-  background: #f8fafc;
-  border-radius: 16px;
-  margin-bottom: 1rem;
+.btn-delete {
+    padding: 0.75rem 1.5rem;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-.skill-chip {
-  padding: 0.6rem 0.5rem;
-  text-align: center;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 30px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #334155;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
+.btn-delete:hover {
+    background: #dc2626;
 }
 
-.skill-chip:hover {
-  border-color: #4f46e5;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(79, 70, 229, 0.1);
+/* Settings */
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.skill-chip.chip-selected {
-  background: #4f46e5;
-  border-color: #4f46e5;
-  color: white;
+.setting-item:last-child {
+    border-bottom: none;
 }
 
-.chip-check {
-  margin-left: 0.3rem;
-  font-weight: bold;
+.setting-item h4 {
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
 }
 
-.skills-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.setting-item p {
+    color: #64748b;
+    font-size: 0.9rem;
 }
 
-.skill-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem 0.5rem 1.2rem;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  border-radius: 30px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #1e293b;
-  transition: all 0.3s ease;
-  border: 1px solid #cbd5e1;
+/* Toggle Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
 }
 
-.skill-item:hover {
-  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-  transform: translateY(-2px);
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
 }
 
-.skill-remove {
-  background: none;
-  border: none;
-  font-size: 1.3rem;
-  line-height: 1;
-  color: #ef4444;
-  cursor: pointer;
-  padding: 0 0.2rem;
-  border-radius: 50%;
-  transition: all 0.3s ease;
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: .3s;
+    border-radius: 24px;
 }
 
-.skill-remove:hover {
-  background: #ef4444;
-  color: white;
-  transform: scale(1.1);
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
 }
 
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 2rem 1rem;
+input:checked+.slider {
+    background-color: #4f46e5;
 }
 
-.empty-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+input:checked+.slider:before {
+    transform: translateX(26px);
 }
 
-.empty-text {
-  color: #64748b;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
+.language-select,
+.theme-select {
+    padding: 0.5rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.3s;
 }
 
-.empty-hint {
-  color: #94a3b8;
-  font-size: 0.9rem;
+.language-select:focus,
+.theme-select:focus {
+    border-color: #4f46e5;
 }
 
-/* Documents Section */
-.file-upload-group {
-  margin-bottom: 1.5rem;
-}
-
-.file-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #334155;
-}
-
-.file-icon {
-  font-size: 1.2rem;
-}
-
-.file-input-wrapper {
-  position: relative;
-}
-
-.file-input {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-}
-
-.file-input-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #f8fafc;
-  border: 2px dashed #cbd5e1;
-  border-radius: 12px;
-  font-weight: 500;
-  color: #4f46e5;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-  justify-content: center;
-}
-
-.file-input-btn:hover {
-  background: #f1f5f9;
-  border-color: #4f46e5;
-  transform: translateY(-2px);
-}
-
-.documents-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.document-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 2px solid transparent;
-  transition: all 0.3s ease;
-}
-
-.document-item.document-present {
-  background: #f0fdf4;
-  border-color: #86efac;
-}
-
-.document-icon {
-  font-size: 1.2rem;
-}
-
-.document-name {
-  flex: 1;
-  font-weight: 500;
-  color: #334155;
-}
-
-.document-status {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #64748b;
-}
-
-.document-present .document-status {
-  color: #10b981;
-}
-
-.document-note {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: #fef3c7;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  color: #92400e;
-}
-
-.note-icon {
-  font-size: 1rem;
-}
-
-/* Profile Footer */
-.profile-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  margin-top: 2rem;
-}
-
-.footer-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.footer-btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.footer-btn-secondary:hover {
-  background: #e2e8f0;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-}
-
-.verification-status-footer {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.status-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.status-indicator.approved {
-  background: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-}
-
-.status-indicator.pending {
-  background: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
-}
-
-.status-indicator:not(.approved):not(.pending) {
-  background: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
-}
-
-.status-text {
-  font-weight: 600;
-}
-
-.status-text.verified {
-  color: #10b981;
-}
-
-.status-text.pending {
-  color: #f59e0b;
-}
-
-.status-text.unverified {
-  color: #ef4444;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .profile-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-meta {
-    flex-direction: column;
-  }
-
-  .profile-footer {
-    flex-direction: column;
+/* Favorites Grid */
+.favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
-    text-align: center;
-  }
-
-  .skills-selector {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
-
-  .form-actions {
-    flex-direction: column;
-  }
-
-  .btn-save,
-  .btn-cancel {
-    width: 100%;
-    justify-content: center;
-  }
 }
 
-@media (max-width: 480px) {
-  .profile-container {
+.favorite-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     padding: 1rem;
-  }
+    background: #f8fafc;
+    border-radius: 12px;
+    position: relative;
+    transition: all 0.3s;
+}
 
-  .header-content {
-    padding: 0 1rem 1.5rem;
-  }
+.favorite-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
 
-  .profile-name {
-    font-size: 1.5rem;
-  }
+.favorite-card img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+}
 
-  .section-card {
-    padding: 1.25rem;
-  }
+.favorite-info {
+    flex: 1;
+}
 
-  .skills-selector {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.favorite-info h4 {
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+}
+
+.favorite-info p {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.rating {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.stars {
+    color: #ffc107;
+}
+
+.favorite-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.view-btn,
+.book-btn,
+.remove-fav {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1rem;
+}
+
+.view-btn {
+    background: #e0e7ff;
+    color: #4f46e5;
+}
+
+.view-btn:hover {
+    background: #c7d2fe;
+    transform: scale(1.1);
+}
+
+.book-btn {
+    background: #d1fae5;
+    color: #10b981;
+}
+
+.book-btn:hover {
+    background: #a7f3d0;
+    transform: scale(1.1);
+}
+
+.remove-fav {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.remove-fav:hover {
+    background: #fecaca;
+    transform: scale(1.1);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #64748b;
+}
+
+.browse-link {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.75rem 2rem;
+    background: #4f46e5;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.browse-link:hover {
+    background: #4338ca;
+    transform: translateY(-2px);
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 20px;
+    max-width: 400px;
+    width: 90%;
+}
+
+.modal-content h3 {
+    color: #1e293b;
+    margin-bottom: 1rem;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
 }
 
 /* Animations */
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s ease;
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.slide-down-enter-from,
-.slide-down-leave-to {
-  opacity: 0;
-  transform: translate(-50%, -20px);
+/* Responsive */
+@media (max-width: 768px) {
+    .profile-container {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-sidebar {
+        position: static;
+    }
+
+    .info-row {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .info-label {
+        width: auto;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .setting-item {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .favorites-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

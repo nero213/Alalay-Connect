@@ -91,12 +91,11 @@ const userLogin = async () => {
       password: form.password,
     })
 
-    // Check if verification is required (this would come from backend)
+    // Check if verification is required
     if (res.data.requiresVerification) {
       verificationRequired.value = true
       unverifiedEmail.value = res.data.email || form.email.trim()
 
-      // Show message and redirect after a short delay
       errorMessage.value = res.data.message || 'Please verify your email before logging in.'
 
       setTimeout(() => {
@@ -119,15 +118,16 @@ const userLogin = async () => {
     // Store user data
     if (res.data.user) {
       localStorage.setItem('user', JSON.stringify(res.data.user))
+
+      // Role-based redirect
+      setTimeout(() => {
+        redirectBasedOnRole(res.data.user)
+      }, 1500)
     }
 
     // Reset form
     Object.keys(form).forEach((k) => (form[k] = ''))
 
-    // Redirect after a short delay to show success message
-    setTimeout(() => {
-      router.push('/profile')
-    }, 1500)
   } catch (err) {
     console.error('Login error:', err)
 
@@ -139,7 +139,6 @@ const userLogin = async () => {
       errorMessage.value =
         err.response.data.message || 'Please verify your email before logging in.'
 
-      // Option to go to verification page
       setTimeout(() => {
         router.push({
           path: '/verify-email',
@@ -155,6 +154,23 @@ const userLogin = async () => {
     form.password = ''
   } finally {
     loading.value = false
+  }
+}
+
+// Add this function for role-based redirect
+const redirectBasedOnRole = (user) => {
+  switch (user.role) {
+    case 'skilled':
+      router.push('/SkilledProfile')
+      break
+    case 'resident':
+      router.push('/userProfile')
+      break
+    case 'admin':
+      router.push('/admin/dashboard')
+      break
+    default:
+      router.push('/dashboard')
   }
 }
 
@@ -193,20 +209,15 @@ const resendVerification = async () => {
       <!-- Show verification warning if needed -->
       <div v-if="verificationRequired" class="verification-warning">
         <svg viewBox="0 0 24 24" width="24" height="24">
-          <path
-            fill="currentColor"
-            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-          />
+          <path fill="currentColor"
+            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
         </svg>
         <p>{{ errorMessage }}</p>
         <div class="verification-actions">
           <button @click="resendVerification" class="resend-btn" :disabled="loading">
             Resend Verification Code
           </button>
-          <router-link
-            :to="{ path: '/verify-email', query: { email: unverifiedEmail } }"
-            class="verify-now-btn"
-          >
+          <router-link :to="{ path: '/verify-email', query: { email: unverifiedEmail } }" class="verify-now-btn">
             Verify Now
           </router-link>
         </div>
@@ -218,38 +229,19 @@ const resendVerification = async () => {
 
         <div class="input-group" :class="{ 'has-error': errors.email }">
           <label for="email">Email Address</label>
-          <input
-            id="email"
-            v-model="form.email"
-            type="email"
-            placeholder="your@email.com"
-            required
-            @input="handleInput('email')"
-            @blur="validateField('email')"
-            :disabled="loading"
-          />
+          <input id="email" v-model="form.email" type="email" placeholder="your@email.com" required
+            @input="handleInput('email')" @blur="validateField('email')" :disabled="loading" />
           <span v-if="errors.email" class="field-error">{{ errors.email }}</span>
         </div>
 
         <div class="input-group" :class="{ 'has-error': errors.password }">
           <label for="password">Password</label>
           <div class="password-wrapper">
-            <input
-              id="password"
-              v-model="form.password"
-              :type="showPassword ? 'text' : 'password'"
-              placeholder="••••••••"
-              required
-              @input="handleInput('password')"
-              @blur="validateField('password')"
-              :disabled="loading"
-            />
-            <button
-              type="button"
-              class="password-toggle"
-              @click="showPassword = !showPassword"
-              :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            >
+            <input id="password" v-model="form.password" :type="showPassword ? 'text' : 'password'"
+              placeholder="••••••••" required @input="handleInput('password')" @blur="validateField('password')"
+              :disabled="loading" />
+            <button type="button" class="password-toggle" @click="showPassword = !showPassword"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'">
               {{ showPassword ? 'Hide' : 'Show' }}
             </button>
           </div>
@@ -267,10 +259,8 @@ const resendVerification = async () => {
 
         <button type="button" @click="loginWithFacebook" class="facebook-btn" :disabled="loading">
           <svg class="facebook-icon" viewBox="0 0 24 24" width="18" height="18">
-            <path
-              fill="currentColor"
-              d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
-            />
+            <path fill="currentColor"
+              d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
           </svg>
           Continue with Facebook
         </button>
@@ -538,6 +528,7 @@ const resendVerification = async () => {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -549,6 +540,7 @@ const resendVerification = async () => {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -564,6 +556,7 @@ const resendVerification = async () => {
 .fade-leave-to {
   opacity: 0;
 }
+
 /* Add these to your existing styles */
 
 .verification-warning {

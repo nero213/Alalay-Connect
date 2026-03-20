@@ -7,7 +7,7 @@
           <span class="logo-icon">🤝</span>
           <span class="logo-text">Alalay<span class="highlight">Connect</span></span>
         </div>
-        
+
         <div class="nav-links" :class="{ 'active': mobileMenuOpen }">
           <a href="#home" @click.prevent="scrollToSection('home')">Home</a>
           <a href="#features" @click.prevent="scrollToSection('features')">Features</a>
@@ -15,12 +15,12 @@
           <a href="#for-workers" @click.prevent="scrollToSection('for-workers')">For Workers</a>
           <a href="#contact" @click.prevent="scrollToSection('contact')">Contact</a>
         </div>
-        
+
         <div class="nav-buttons">
           <router-link to="/login" class="btn btn-outline">Log In</router-link>
           <router-link to="/register" class="btn btn-primary">Sign Up</router-link>
         </div>
-        
+
         <button class="mobile-menu-btn" @click="toggleMobileMenu" aria-label="Toggle menu">
           <span></span>
           <span></span>
@@ -35,12 +35,14 @@
         <div class="hero-content">
           <h1 class="hero-title">
             <span class="greeting">👋 Magandang araw!</span>
-            <span class="main-title">Find trusted local <span class="highlight">skilled workers</span> in your community</span>
+            <span class="main-title">Find trusted local <span class="highlight">skilled workers</span> in your
+              community</span>
           </h1>
           <p class="hero-subtitle">
-            Alalay Connect helps you discover reliable plumbers, electricians, carpenters, and more — right in your barangay.
+            Alalay Connect helps you discover reliable plumbers, electricians, carpenters, and more — right in your
+            barangay.
           </p>
-          
+
           <div class="hero-cta">
             <router-link to="/register" class="btn btn-primary btn-large">
               Find Help Now
@@ -50,7 +52,7 @@
               Offer Your Skills
             </router-link>
           </div>
-          
+
           <div class="hero-stats">
             <div class="stat-item">
               <span class="stat-number">500+</span>
@@ -66,7 +68,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="hero-image">
           <div class="image-container">
             <!-- CSS Illustration instead of image -->
@@ -83,7 +85,7 @@
                 <div class="house"></div>
               </div>
             </div>
-            
+
             <div class="floating-card card-1">
               <span class="card-icon">🔧</span>
               <div class="card-info">
@@ -117,26 +119,26 @@
           <h2>Why Choose Alalay Connect?</h2>
           <p>We make finding skilled workers simple, safe, and community-focused</p>
         </div>
-        
+
         <div class="features-grid">
           <div class="feature-card">
             <div class="feature-icon">📍</div>
             <h3>Location-Based</h3>
             <p>Find workers in your barangay and nearby areas. No more searching far away.</p>
           </div>
-          
+
           <div class="feature-card">
             <div class="feature-icon">✓</div>
             <h3>Verified Profiles</h3>
             <p>Each worker has a verified profile with skills, experience, and photos.</p>
           </div>
-          
+
           <div class="feature-card">
             <div class="feature-icon">👥</div>
             <h3>Community Trust</h3>
             <p>Built on local connections and community recommendations.</p>
           </div>
-          
+
           <div class="feature-card">
             <div class="feature-icon">📱</div>
             <h3>Easy to Use</h3>
@@ -153,7 +155,7 @@
           <h2>How Alalay Connect Works</h2>
           <p>Three simple steps to find the help you need</p>
         </div>
-        
+
         <div class="steps">
           <div class="step">
             <div class="step-number">1</div>
@@ -161,18 +163,18 @@
             <h3>Search</h3>
             <p>Type what you need — plumber, electrician, cleaner, or any skilled worker</p>
           </div>
-          
+
           <div class="step-connector"></div>
-          
+
           <div class="step">
             <div class="step-number">2</div>
             <div class="step-icon">👤</div>
             <h3>Browse</h3>
             <p>View profiles, check experience, see ratings, and find workers near you</p>
           </div>
-          
+
           <div class="step-connector"></div>
-          
+
           <div class="step">
             <div class="step-number">3</div>
             <div class="step-icon">🤝</div>
@@ -180,7 +182,7 @@
             <p>Contact them directly and get your problem solved</p>
           </div>
         </div>
-        
+
         <div class="demo-search">
           <div class="search-box">
             <div class="search-input-wrapper">
@@ -189,7 +191,7 @@
             </div>
             <button class="btn btn-primary search-btn">Search</button>
           </div>
-          
+
           <div v-if="searchQuery" class="search-preview">
             <p>Showing workers near <strong>your location</strong>:</p>
             <div class="preview-results">
@@ -222,7 +224,7 @@
           <div class="workers-text">
             <h2>Are you a skilled worker?</h2>
             <p class="workers-subtitle">Get discovered by people in your community who need your skills</p>
-            
+
             <ul class="benefits-list">
               <li>
                 <span class="benefit-icon">📝</span>
@@ -245,12 +247,12 @@
                 <span>Get job opportunities in your barangay</span>
               </li>
             </ul>
-            
+
             <router-link to="/register?type=worker" class="btn btn-primary btn-large">
               Create Worker Profile
             </router-link>
           </div>
-          
+
           <div class="workers-image">
             <div class="worker-profile-card">
               <div class="profile-header">
@@ -306,7 +308,7 @@
         <div class="section-header">
           <h2>What Our Community Says</h2>
         </div>
-        
+
         <div class="testimonials-grid">
           <div class="testimonial-card">
             <div class="testimonial-content">
@@ -320,10 +322,11 @@
               </div>
             </div>
           </div>
-          
+
           <div class="testimonial-card">
             <div class="testimonial-content">
-              "Dahil sa Alalay Connect, marami na akong bagong customers sa barangay namin. Malaking tulong sa kabuhayan ko."
+              "Dahil sa Alalay Connect, marami na akong bagong customers sa barangay namin. Malaking tulong sa kabuhayan
+              ko."
             </div>
             <div class="testimonial-author">
               <span class="author-avatar">👨</span>
@@ -333,7 +336,7 @@
               </div>
             </div>
           </div>
-          
+
           <div class="testimonial-card">
             <div class="testimonial-content">
               "Madali lang gamitin! Ilang clicks lang, may makukuhanan na agad ako ng tutulong sa bahay."
@@ -381,7 +384,7 @@
               <a href="#" class="social-link" aria-label="TikTok">📱</a>
             </div>
           </div>
-          
+
           <div class="footer-col">
             <h4>Quick Links</h4>
             <ul>
@@ -391,7 +394,7 @@
               <li><a href="#for-workers" @click.prevent="scrollToSection('for-workers')">For Workers</a></li>
             </ul>
           </div>
-          
+
           <div class="footer-col">
             <h4>Support</h4>
             <ul>
@@ -401,7 +404,7 @@
               <li><a href="#">Terms of Service</a></li>
             </ul>
           </div>
-          
+
           <div class="footer-col">
             <h4>Contact</h4>
             <ul class="contact-info">
@@ -411,7 +414,7 @@
             </ul>
           </div>
         </div>
-        
+
         <div class="footer-bottom">
           <p>&copy; 2024 Alalay Connect. All rights reserved. 🇵🇭 Made with bayanihan spirit.</p>
         </div>
@@ -756,7 +759,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
   background-size: 50px 50px;
 }
 
@@ -840,9 +843,12 @@ onUnmounted(() => {
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-20px);
   }
@@ -1382,6 +1388,7 @@ onUnmounted(() => {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1394,51 +1401,52 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     text-align: center;
   }
-  
+
   .hero-stats {
     justify-content: center;
   }
-  
+
   .hero-cta {
     justify-content: center;
   }
-  
+
   .features-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .workers-content {
     grid-template-columns: 1fr;
     text-align: center;
   }
-  
+
   .benefits-list li {
     justify-content: center;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .testimonials-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .footer-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 768px) {
+
   .nav-links,
   .nav-buttons {
     display: none;
   }
-  
+
   .mobile-menu-btn {
     display: flex;
   }
-  
+
   .nav-links.active {
     display: flex;
     flex-direction: column;
@@ -1450,47 +1458,47 @@ onUnmounted(() => {
     padding: 2rem;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
   }
-  
+
   .main-title {
     font-size: 2.2rem;
   }
-  
+
   .hero-cta {
     flex-direction: column;
   }
-  
+
   .steps {
     flex-direction: column;
     gap: 2rem;
   }
-  
+
   .step-connector {
     width: 2px;
     height: 50px;
   }
-  
+
   .features-grid,
   .stats-grid,
   .testimonials-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .cta-card {
     padding: 2rem;
   }
-  
+
   .cta-card h2 {
     font-size: 1.8rem;
   }
-  
+
   .cta-buttons {
     flex-direction: column;
   }
-  
+
   .footer-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .floating-card {
     display: none;
   }
