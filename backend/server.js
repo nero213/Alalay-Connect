@@ -15,6 +15,9 @@ import bookingRoutes from "./routes/booking.routes.js";
 import favoritesRoutes from "./routes/favorites.routes.js";
 import ratingRoutes from "./routes/rating.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
+import messageRoutes from "./routes/message.routes.js";
+import reportRoutes from "./routes/report.routes.js";
 
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
@@ -62,6 +65,9 @@ const limiter = rateLimit({
 });
 
 // Routes
+app.use("/api/reports", reportRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/user", userSettingsRoutes);

@@ -53,7 +53,7 @@ export const getMySkilledProfile = async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM skilled_profiles WHERE user_id = ?",
-      [req.usser.id],
+      [req.user.id],
     );
     if (!rows.length) {
       return res.status(404).json({ message: "skilled profile not found" });
@@ -236,43 +236,75 @@ export const searchSkilledWorkers = async (req, res) => {
     const { lat, lng, skill } = req.query;
 
     if (!lat || !lng) {
-      return res.status(400).json({ message: "location required" });
+      return res.status(400).json({ message: "Location required" });
     }
-    const query = `SELECT u.user_id, 
-    CONCAT(sp.firstName, ' ', sp.lastName) AS fullName, 
-    sp.bio, 
-    sp.skilled_id,
-    sp.profile_image,
-    sp.years_experience,
-    sp.latitude,
-    sp.longitude,
-    s.name,
-    u.phone,
-    ( 
-      6371 * acos(
-      cos(radians(?)) * 
-      cos(radians(sp.latitude)) *
-      cos(radians(sp.longitude) - radians(?)) + 
-      sin(radians(?)) * sin(radians(sp.latitude))
-      )
-    ) AS distance 
-    FROM skilled_profiles sp 
-    JOIN users u ON u.user_id = sp.user_id
-    JOIN skilled_profile_skills sps ON sp.skilled_id = sps.skilled_id
-    JOIN skills s ON s.skill_id = sps.skill_id
-    WHERE (? IS NULL OR s.name = ?) AND sp.verification_status = "approved"
-    ORDER BY distance ASC`;
 
-    const [rows] = await pool.execute(query, [
-      lat,
-      lng,
-      lat,
-      skill || null,
-      skill || null,
-    ]);
-    res.status(200).json(rows);
+    let query = `
+      SELECT 
+        u.user_id,
+        sp.skilled_id,
+        CONCAT(u.firstName, ' ', u.lastName) AS fullName,
+        sp.bio,
+        sp.years_experience,
+        sp.hourly_rate,
+        sp.latitude,
+        sp.longitude,
+        sp.profile_image,
+        sp.verification_status,
+        (
+          6371 * acos(
+            cos(radians(?)) * 
+            cos(radians(sp.latitude)) *
+            cos(radians(sp.longitude) - radians(?)) + 
+            sin(radians(?)) * sin(radians(sp.latitude))
+          )
+        ) AS distance,
+        COUNT(DISTINCT r.rating_id) as total_ratings,
+        COALESCE(ROUND(AVG(r.rating), 1), 0) as average_rating,
+        GROUP_CONCAT(DISTINCT s.name SEPARATOR ', ') as skill_names
+      FROM skilled_profiles sp 
+      JOIN users u ON u.user_id = sp.user_id
+      LEFT JOIN ratings r ON r.skilled_id = sp.skilled_id AND r.status = 'active'
+      LEFT JOIN skilled_profile_skills sps ON sps.skilled_id = sp.skilled_id
+      LEFT JOIN skills s ON s.skill_id = sps.skill_id
+      WHERE sp.verification_status = 'approved'
+        AND sp.latitude IS NOT NULL 
+        AND sp.longitude IS NOT NULL
+    `;
+
+    const params = [lat, lng, lat];
+
+    // Add skill filter if provided
+    if (skill) {
+      query += `
+        AND sp.skilled_id IN (
+          SELECT skilled_id 
+          FROM skilled_profile_skills sps2
+          JOIN skills s2 ON s2.skill_id = sps2.skill_id
+          WHERE s2.name LIKE ?
+        )
+      `;
+      params.push(`%${skill}%`);
+    }
+
+    query += ` GROUP BY sp.skilled_id ORDER BY distance ASC LIMIT 50`;
+
+    const [rows] = await pool.execute(query, params);
+
+    const results = rows.map((row) => ({
+      ...row,
+      average_rating: parseFloat(row.average_rating || 0).toFixed(1),
+      total_ratings: parseInt(row.total_ratings) || 0,
+      hourly_rate: row.hourly_rate || 500,
+      skill_name: row.skill_names
+        ? row.skill_names.split(", ")[0]
+        : "Professional",
+      all_skills: row.skill_names ? row.skill_names.split(", ") : [],
+    }));
+
+    res.status(200).json(results);
   } catch (error) {
-    console.error(error);
+    console.error("Search error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -427,7 +459,7 @@ export const getPublicSkilledProfile = async (req, res) => {
 
     console.log("Fetching public profile for skilled_id:", id);
 
-    // Get skilled profile with user details - ADD hourly_rate to the SELECT
+    // Get skilled profile with user details
     const [profileRows] = await pool.query(
       `SELECT 
         sp.skilled_id,
@@ -436,7 +468,7 @@ export const getPublicSkilledProfile = async (req, res) => {
         sp.lastName,
         sp.bio,
         sp.years_experience,
-        sp.hourly_rate,  
+        sp.hourly_rate,
         sp.profile_image,
         sp.gov_id,
         sp.certificate,
@@ -463,7 +495,7 @@ export const getPublicSkilledProfile = async (req, res) => {
 
     const profile = profileRows[0];
 
-    // Get the worker's skills
+    // Get the worker's skills - MAKE SURE THIS QUERY IS CORRECT
     const [skills] = await pool.query(
       `SELECT s.skill_id, s.name 
        FROM skills s
@@ -476,14 +508,14 @@ export const getPublicSkilledProfile = async (req, res) => {
     const [ratingStats] = await pool.query(
       `SELECT 
         COUNT(*) as total_ratings,
-        AVG(rating) as average_rating,
+        COALESCE(ROUND(AVG(rating), 1), 0) as average_rating,
         SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as five_star,
         SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as four_star,
         SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as three_star,
         SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as two_star,
         SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as one_star
        FROM ratings
-       WHERE skilled_id = ?`,
+       WHERE skilled_id = ? AND status = 'active'`,
       [id],
     );
 
@@ -547,7 +579,7 @@ export const getPublicSkilledProfile = async (req, res) => {
         DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') as created_at
        FROM ratings r
        JOIN users u ON u.user_id = r.client_id
-       WHERE r.skilled_id = ?
+       WHERE r.skilled_id = ? AND r.status = 'active'
        ORDER BY r.created_at DESC
        LIMIT 10`,
       [id],
@@ -578,15 +610,19 @@ export const getPublicSkilledProfile = async (req, res) => {
       distance = R * c;
     }
 
+    // Get the primary skill name (first skill) for display
+    const primarySkill = skills.length > 0 ? skills[0].name : "Professional";
+
     res.json({
       profile: {
         ...profile,
-        skills,
+        skills: skills, // Make sure skills are included
         fullName: `${profile.firstName} ${profile.lastName}`,
         distance: distance ? parseFloat(distance).toFixed(1) : null,
         average_rating: stats.average_rating,
         total_ratings: stats.total_ratings,
-        hourly_rate: profile.hourly_rate || 500, // Ensure hourly_rate is included with default
+        hourly_rate: profile.hourly_rate || 500,
+        skill_name: primarySkill, // Add this for the main skill display
       },
       ratings: {
         stats,
