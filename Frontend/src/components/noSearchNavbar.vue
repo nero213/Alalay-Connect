@@ -418,6 +418,8 @@ if (typeof window !== 'undefined') {
               </svg>
             </span>
             <span class="link-text">Messages</span>
+            <span v-if="unreadMessageCount > 0" class="unread-badge">{{ unreadMessageCount > 99 ? '99+' :
+              unreadMessageCount }}</span>
           </router-link>
 
           <router-link to="/notifications" class="sidenav-link" @click="closeSideNav">
@@ -523,7 +525,7 @@ if (typeof window !== 'undefined') {
       </div>
     </div>
 
-    <!-- Status Modal -->
+    <!-- Status Modal (same as before) -->
     <div v-if="showStatusModal" class="modal-overlay" @click="closeStatusModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -609,6 +611,7 @@ if (typeof window !== 'undefined') {
     </div>
   </div>
 </template>
+
 
 <style scoped>
 /* Navbar Styles */

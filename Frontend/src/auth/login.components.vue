@@ -268,9 +268,8 @@ const resendVerification = async () => {
           Don't have an account?
           <router-link to="/register">Sign up now</router-link>
         </div>
-
-        <div class="forgot-password">
-          <router-link to="/forgot-password">Forgot password?</router-link>
+        <div class="forgot-password-link">
+          <router-link to="/forgot-password">Forgot Password?</router-link>
         </div>
       </form>
 
@@ -523,6 +522,23 @@ const resendVerification = async () => {
 .forgot-password a:hover {
   color: #667eea;
   text-decoration: underline;
+}
+
+.forgot-password-link {
+  margin-top: 10px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.forgot-password-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 0.3s;
+}
+
+.forgot-password-link a:hover {
+  color: #764ba2;
 }
 
 .success-message,

@@ -23,6 +23,8 @@ import AdminVerification from '@/views/admin/AdminVerification.vue'
 import AdminSkills from '@/views/admin/AdminSkills.vue'
 import AdminReports from '@/views/admin/AdminReports.vue'
 import Messages from '@/views/Messages.vue'
+import ForgotPassword from '@/auth/ForgotPassword.vue'
+import ResetPassword from '@/auth/ResetPassword.vue'
 
 const routes = [
   {
@@ -133,6 +135,16 @@ const routes = [
     name: 'Messages',
     component: Messages,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword,
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword,
   },
 
   {
