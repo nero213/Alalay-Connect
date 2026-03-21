@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NotificationBell from './NotificationBell.vue'
-import { getMySkills } from '@/api/skilledProfiles'
+import { getMySkilledProfile } from '@/api/skilledProfiles'
 
 const router = useRouter()
 const route = useRoute()
@@ -28,7 +28,7 @@ onMounted(async () => {
 const loadSkilledProfileStatus = async () => {
   skilledProfileLoading.value = true
   try {
-    const response = await getMySkills()
+    const response = await getMySkilledProfile()
     skilledProfile.value = response
   } catch (error) {
     // 404 means no profile yet, which is fine
@@ -76,9 +76,13 @@ const dashboardLink = computed(() => {
   return user.value.role === 'admin' ? '/admin/dashboard' : '/dashboard'
 })
 
+// Check if user is admin
+const isAdmin = computed(() => {
+  return user.value?.role === 'admin'
+})
+
 // Check if user can apply to become skilled
 const canBecomeSkilled = computed(() => {
-  // Only residents who are not already skilled and have no pending application
   return user.value?.role === 'resident' &&
     !skilledProfile.value &&
     !skilledProfileLoading.value
@@ -97,21 +101,18 @@ const getStatusMessage = () => {
       return {
         title: 'Application Pending',
         message: 'Your skilled worker application is currently under review. We will notify you once it\'s approved.',
-        icon: '⏳',
         color: '#f59e0b'
       }
     case 'approved':
       return {
-        title: 'Application Approved! 🎉',
+        title: 'Application Approved!',
         message: 'Congratulations! Your application to become a skilled worker has been approved. You can now start accepting bookings.',
-        icon: '✅',
         color: '#10b981'
       }
     case 'rejected':
       return {
         title: 'Application Not Approved',
         message: 'We\'re sorry, your application was not approved at this time. Please check your documents and try again.',
-        icon: '❌',
         color: '#ef4444'
       }
     default:
@@ -143,6 +144,12 @@ const goToSkilledProfile = () => {
   closeSideNav()
 }
 
+// Navigate to admin dashboard
+const goToAdminDashboard = () => {
+  router.push('/admin/dashboard')
+  closeSideNav()
+}
+
 // Refresh profile status (for after applying)
 const refreshProfileStatus = async () => {
   await loadSkilledProfileStatus()
@@ -159,19 +166,30 @@ if (typeof window !== 'undefined') {
     <!-- Navbar -->
     <nav class="navbar">
       <div class="nav-brand">
-        <router-link to="/" class="brand-link">alalay_connect</router-link>
+        <router-link to="/" class="brand-link">
+          <span class="brand-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L3 7L12 12L21 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M3 12L12 17L21 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M3 17L12 22L21 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="brand-text">alalay_connect</span>
+        </router-link>
       </div>
 
       <!-- User Info & Hamburger Menu -->
       <div class="nav-menu">
-        <!-- Add NotificationBell here -->
         <NotificationBell />
 
-        <div class="hamburger-icon" @click="toggleSideNav">
+        <button class="hamburger-icon" @click="toggleSideNav" aria-label="Menu">
           <span></span>
           <span></span>
           <span></span>
-        </div>
+        </button>
       </div>
     </nav>
 
@@ -182,7 +200,12 @@ if (typeof window !== 'undefined') {
     <div class="sidenav" :class="{ 'sidenav-open': isSideNavOpen }">
       <div class="sidenav-header">
         <h3>Menu</h3>
-        <button class="close-btn" @click="closeSideNav">&times;</button>
+        <button class="close-btn" @click="closeSideNav" aria-label="Close menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
       </div>
 
       <div class="sidenav-content">
@@ -197,10 +220,11 @@ if (typeof window !== 'undefined') {
           </div>
         </div>
 
-        <!-- Main Navigation Links -->
-        <div class="nav-section">
-          <h4>Main</h4>
-          <router-link to="/" class="sidenav-link" @click="closeSideNav">
+        <!-- Admin Section - Only visible to admins -->
+        <div v-if="isAdmin" class="nav-section admin-section">
+          <h4>Admin Panel</h4>
+
+          <div class="admin-link" @click="goToAdminDashboard">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3 9L12 3L21 9L12 15L3 9Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
@@ -211,25 +235,95 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            Home
+            <span class="link-text">Dashboard</span>
+            <span class="admin-badge">Admin</span>
+          </div>
+
+          <router-link to="/admin/users" class="sidenav-link" @click="closeSideNav">
+            <span class="link-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1615 16.5523C21.6185 15.8519 20.8581 15.3516 20 15.13"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path
+                  d="M16 3.13C16.8604 3.3503 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45768C17.623 10.1593 16.8604 10.6597 16 10.88"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="link-text">Users</span>
           </router-link>
+
+          <router-link to="/admin/verification" class="sidenav-link" @click="closeSideNav">
+            <span class="link-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="link-text">Verification</span>
+            <span v-if="skilledProfile?.verification_status === 'pending'" class="pending-count">!</span>
+          </router-link>
+
+          <router-link to="/admin/skills" class="sidenav-link" @click="closeSideNav">
+            <span class="link-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14.7 6.3L19 2L20.7 3.7L16.4 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M9 12L12 9M7 17L12 12M11 19L19 11" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M5 17L7 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M3 13L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="link-text">Skills</span>
+          </router-link>
+
+          <router-link to="/admin/reports" class="sidenav-link" @click="closeSideNav">
+            <span class="link-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="link-text">Reports</span>
+          </router-link>
+        </div>
+
+        <!-- Main Navigation Links -->
+        <div class="nav-section">
+          <h4>Main</h4>
 
           <router-link :to="dashboardLink" class="sidenav-link" @click="closeSideNav">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
-                <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
-                <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5" />
+                <path d="M3 9L12 3L21 9L12 15L3 9Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M5 12V18H19V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M12 15V18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
               </svg>
             </span>
-            Dashboard
+            <span class="link-text">Home</span>
           </router-link>
         </div>
 
         <!-- Profile & Bookings Section -->
         <div class="nav-section" v-if="isLoggedIn">
           <h4>My Account</h4>
+
           <router-link :to="profileLink" class="sidenav-link" @click="closeSideNav">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -241,10 +335,10 @@ if (typeof window !== 'undefined') {
                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            My Profile
+            <span class="link-text">My Profile</span>
           </router-link>
 
-          <!-- Become Skilled Worker Button (Only for residents without application) -->
+          <!-- Become Skilled Worker Button -->
           <div v-if="canBecomeSkilled" class="become-skilled-link" @click="goToBecomeSkilled">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -258,11 +352,11 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            <span>Become a Skilled Worker</span>
+            <span class="link-text">Become a Skilled Worker</span>
             <span class="badge-new">New</span>
           </div>
 
-          <!-- Skilled Profile Status Button (For residents with application) -->
+          <!-- Skilled Profile Status Button -->
           <div v-else-if="user?.role === 'resident' && skilledProfile" class="status-link" @click="openStatusModal">
             <span class="link-icon" :class="skilledProfileStatus">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -275,34 +369,32 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            <span>Application Status</span>
+            <span class="link-text">Application Status</span>
             <span class="status-badge" :class="skilledProfileStatus">
               {{ skilledProfileStatus }}
             </span>
           </div>
 
-          <!-- Skilled Worker Dashboard (For approved skilled workers) -->
+          <!-- Skilled Worker Dashboard -->
           <router-link v-else-if="user?.role === 'skilled'" to="/skilled-bookings" class="sidenav-link"
             @click="closeSideNav">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
                 <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                <path d="M12 14H12.01M16 14H16.01M8 14H8.01" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" />
               </svg>
             </span>
-            Manage Bookings
+            <span class="link-text">Manage Bookings</span>
           </router-link>
 
-          <router-link v-else to="/bookings" class="sidenav-link" @click="closeSideNav">
+          <router-link to="/bookings" class="sidenav-link" @click="closeSideNav">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
                 <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
               </svg>
             </span>
-            My Bookings
+            <span class="link-text">My Bookings</span>
           </router-link>
 
           <router-link to="/favorites" class="sidenav-link" @click="closeSideNav">
@@ -313,19 +405,19 @@ if (typeof window !== 'undefined') {
                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            Favorites
+            <span class="link-text">Favorites</span>
           </router-link>
 
           <router-link to="/messages" class="sidenav-link" @click="closeSideNav">
             <span class="link-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                 <path d="M8 9H16M8 13H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
               </svg>
             </span>
-            Messages
+            <span class="link-text">Messages</span>
           </router-link>
 
           <router-link to="/notifications" class="sidenav-link" @click="closeSideNav">
@@ -339,13 +431,14 @@ if (typeof window !== 'undefined') {
                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            Notifications
+            <span class="link-text">Notifications</span>
           </router-link>
         </div>
 
         <!-- Settings & Support Section -->
         <div class="nav-section" v-if="isLoggedIn">
           <h4>Settings</h4>
+
           <router-link to="/settings" class="sidenav-link" @click="closeSideNav">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -357,7 +450,7 @@ if (typeof window !== 'undefined') {
                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            Settings
+            <span class="link-text">Settings</span>
           </router-link>
 
           <router-link to="/help" class="sidenav-link" @click="closeSideNav">
@@ -370,13 +463,14 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            Help Center
+            <span class="link-text">Help Center</span>
           </router-link>
         </div>
 
         <!-- Auth Links -->
         <div class="nav-section" v-if="!isLoggedIn">
           <h4>Account</h4>
+
           <router-link to="/login" class="sidenav-link" @click="closeSideNav">
             <span class="link-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -389,7 +483,7 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            Login
+            <span class="link-text">Login</span>
           </router-link>
 
           <router-link to="/register" class="sidenav-link" @click="closeSideNav">
@@ -405,7 +499,7 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            Register
+            <span class="link-text">Register</span>
           </router-link>
         </div>
 
@@ -423,7 +517,7 @@ if (typeof window !== 'undefined') {
                   stroke-linejoin="round" />
               </svg>
             </span>
-            Logout
+            <span class="link-text">Logout</span>
           </button>
         </div>
       </div>
@@ -434,23 +528,58 @@ if (typeof window !== 'undefined') {
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ getStatusMessage()?.title }}</h3>
-          <button @click="closeStatusModal" class="close-btn">&times;</button>
+          <button @click="closeStatusModal" class="modal-close-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </button>
         </div>
+
         <div class="modal-body">
           <div class="status-icon" :style="{ color: getStatusMessage()?.color }">
-            {{ getStatusMessage()?.icon }}
+            <svg v-if="skilledProfileStatus === 'pending'" width="64" height="64" viewBox="0 0 24 24" fill="none"
+              xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <svg v-else-if="skilledProfileStatus === 'approved'" width="64" height="64" viewBox="0 0 24 24" fill="none"
+              xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            <svg v-else-if="skilledProfileStatus === 'rejected'" width="64" height="64" viewBox="0 0 24 24" fill="none"
+              xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
           </div>
           <p class="status-message">{{ getStatusMessage()?.message }}</p>
 
           <!-- Additional info based on status -->
           <div v-if="skilledProfileStatus === 'pending'" class="status-info">
-            <p>⏰ Estimated review time: 2-3 business days</p>
-            <p>📧 We'll notify you via email once reviewed</p>
+            <div class="info-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                  stroke="currentColor" stroke-width="1.5" />
+              </svg>
+              <span>Estimated review time: 2-3 business days</span>
+            </div>
+            <div class="info-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z"
+                  stroke="currentColor" stroke-width="1.5" />
+                <path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="1.5" />
+              </svg>
+              <span>We'll notify you via email once reviewed</span>
+            </div>
           </div>
 
           <div v-if="skilledProfileStatus === 'rejected'" class="status-info rejected">
-            <p>📋 Common reasons for rejection:</p>
-            <ul>
+            <p class="info-title">Common reasons for rejection:</p>
+            <ul class="reasons-list">
               <li>Missing or unclear government ID</li>
               <li>Incomplete certificate/documentation</li>
               <li>Insufficient experience information</li>
@@ -461,8 +590,8 @@ if (typeof window !== 'undefined') {
           </div>
 
           <div v-if="skilledProfileStatus === 'approved'" class="status-info approved">
-            <p>🎉 What's next?</p>
-            <ul>
+            <p class="info-title">What's next?</p>
+            <ul class="next-steps">
               <li>Complete your worker profile</li>
               <li>Add your skills and hourly rate</li>
               <li>Start accepting bookings from clients</li>
@@ -472,6 +601,7 @@ if (typeof window !== 'undefined') {
             </button>
           </div>
         </div>
+
         <div class="modal-footer">
           <button @click="closeStatusModal" class="btn-secondary">Close</button>
         </div>
@@ -486,12 +616,11 @@ if (typeof window !== 'undefined') {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background: rgba(255, 255, 255, 0.2);
+  padding: 0.75rem 2rem;
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -502,22 +631,34 @@ if (typeof window !== 'undefined') {
 }
 
 .brand-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.5rem;
-  font-weight: bold;
-  color: #007bff;
+  font-weight: 700;
   text-decoration: none;
-  letter-spacing: 0.5px;
+  color: #4f46e5;
+  transition: all 0.3s ease;
 }
 
 .brand-link:hover {
-  color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.brand-icon svg {
+  stroke: #4f46e5;
+}
+
+.brand-text {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Hamburger Menu */
 .nav-menu {
-  flex: 1;
   display: flex;
-  justify-content: flex-end;
   align-items: center;
   gap: 1rem;
 }
@@ -530,18 +671,21 @@ if (typeof window !== 'undefined') {
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .hamburger-icon span {
   width: 100%;
-  height: 3px;
-  background-color: #007bff;
-  border-radius: 3px;
+  height: 2px;
+  background-color: #4f46e5;
+  border-radius: 2px;
   transition: 0.3s;
 }
 
 .hamburger-icon:hover span {
-  background-color: #0056b3;
+  background-color: #7c3aed;
 }
 
 /* Side Navigation Overlay */
@@ -553,23 +697,21 @@ if (typeof window !== 'undefined') {
   height: 100%;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 1001;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
 }
 
 /* Side Navigation */
 .sidenav {
   position: fixed;
   top: 0;
-  right: -300px;
-  width: 280px;
+  right: -320px;
+  width: 320px;
   height: 100%;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  background: white;
+  box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
   z-index: 1002;
-  transition: right 0.3s ease;
-  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow-y: auto;
 }
 
@@ -582,39 +724,40 @@ if (typeof window !== 'undefined') {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid #f1f5f9;
+  background: white;
 }
 
 .sidenav-header h3 {
   margin: 0;
-  color: #333;
-  font-size: 1.2rem;
+  color: #1e293b;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 2rem;
   cursor: pointer;
-  color: #666;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: 0.3s;
+  transition: all 0.3s ease;
+  color: #64748b;
 }
 
 .close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-  color: #333;
+  background-color: #f1f5f9;
+  color: #1e293b;
 }
 
 /* Side Navigation Content */
 .sidenav-content {
-  padding: 1rem 0;
+  padding: 0.5rem 0;
   display: flex;
   flex-direction: column;
 }
@@ -625,21 +768,21 @@ if (typeof window !== 'undefined') {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: white;
   margin-bottom: 1rem;
 }
 
 .user-avatar {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-size: 1.25rem;
+  font-weight: 600;
   border: 2px solid white;
 }
 
@@ -654,7 +797,7 @@ if (typeof window !== 'undefined') {
 }
 
 .user-role {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   opacity: 0.9;
   margin: 0;
   text-transform: capitalize;
@@ -663,7 +806,7 @@ if (typeof window !== 'undefined') {
 /* Navigation Sections */
 .nav-section {
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .nav-section:last-child {
@@ -673,32 +816,33 @@ if (typeof window !== 'undefined') {
 .nav-section h4 {
   padding: 0.5rem 1.5rem;
   margin: 0;
-  color: #999;
-  font-size: 0.8rem;
+  color: #94a3b8;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 /* Side Navigation Links */
 .sidenav-link {
   display: flex;
   align-items: center;
-  padding: 0.8rem 1.5rem;
-  color: #333;
+  padding: 0.75rem 1.5rem;
+  color: #334155;
   text-decoration: none;
-  transition: 0.3s;
+  transition: all 0.3s ease;
   gap: 1rem;
 }
 
 .sidenav-link:hover {
-  background-color: rgba(0, 123, 255, 0.1);
-  color: #007bff;
+  background-color: #f8fafc;
+  color: #4f46e5;
 }
 
 .sidenav-link.router-link-active {
-  background-color: rgba(0, 123, 255, 0.15);
-  color: #007bff;
-  border-left: 3px solid #007bff;
+  background-color: #eef2ff;
+  color: #4f46e5;
+  border-right: 3px solid #4f46e5;
 }
 
 .link-icon {
@@ -707,7 +851,6 @@ if (typeof window !== 'undefined') {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: inherit;
 }
 
 .link-icon svg {
@@ -717,54 +860,57 @@ if (typeof window !== 'undefined') {
   fill: none;
 }
 
+.link-text {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
 /* Become Skilled Worker Button */
 .become-skilled-link {
   display: flex;
   align-items: center;
-  padding: 0.8rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   color: #10b981;
   text-decoration: none;
-  transition: 0.3s;
+  transition: all 0.3s ease;
   gap: 1rem;
   cursor: pointer;
-  position: relative;
 }
 
 .become-skilled-link:hover {
-  background-color: rgba(16, 185, 129, 0.1);
+  background-color: #f0fdf4;
   color: #059669;
 }
 
 .badge-new {
-  background: #10b981;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 12px;
-  margin-left: auto;
+  font-size: 0.65rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-weight: 600;
 }
 
 /* Status Link */
 .status-link {
   display: flex;
   align-items: center;
-  padding: 0.8rem 1.5rem;
-  text-decoration: none;
-  transition: 0.3s;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s ease;
   gap: 1rem;
   cursor: pointer;
 }
 
 .status-link:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: #f8fafc;
 }
 
 .status-badge {
   font-size: 0.7rem;
   padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  margin-left: auto;
-  text-transform: uppercase;
+  border-radius: 20px;
+  text-transform: capitalize;
   font-weight: 600;
 }
 
@@ -800,19 +946,20 @@ if (typeof window !== 'undefined') {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 0.8rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   background: none;
   border: none;
-  color: #dc3545;
-  font-size: 1rem;
+  color: #ef4444;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: 0.3s;
+  transition: all 0.3s ease;
   gap: 1rem;
   text-align: left;
 }
 
 .logout-btn:hover {
-  background-color: rgba(220, 53, 69, 0.1);
+  background-color: #fef2f2;
 }
 
 /* Modal Styles */
@@ -827,17 +974,19 @@ if (typeof window !== 'undefined') {
   align-items: center;
   justify-content: center;
   z-index: 1100;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
 }
 
 .modal-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 24px;
   max-width: 450px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease;
 }
 
 .modal-header {
@@ -845,13 +994,34 @@ if (typeof window !== 'undefined') {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .modal-header h3 {
   margin: 0;
   color: #1e293b;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  color: #64748b;
+}
+
+.modal-close-btn:hover {
+  background-color: #f1f5f9;
+  color: #ef4444;
 }
 
 .modal-body {
@@ -860,37 +1030,28 @@ if (typeof window !== 'undefined') {
 }
 
 .status-icon {
-  font-size: 4rem;
   margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.status-icon svg {
+  width: 64px;
+  height: 64px;
 }
 
 .status-message {
   color: #475569;
   line-height: 1.6;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .status-info {
   background: #f8fafc;
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-top: 1rem;
   text-align: left;
-}
-
-.status-info p {
-  margin: 0 0 0.5rem 0;
-  font-weight: 500;
-}
-
-.status-info ul {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.status-info li {
-  color: #64748b;
-  margin-bottom: 0.25rem;
 }
 
 .status-info.rejected {
@@ -903,17 +1064,61 @@ if (typeof window !== 'undefined') {
   border-left: 3px solid #10b981;
 }
 
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-row svg {
+  width: 20px;
+  height: 20px;
+  stroke: #64748b;
+  flex-shrink: 0;
+}
+
+.info-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #1e293b;
+}
+
+.reasons-list,
+.next-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #64748b;
+}
+
+.reasons-list li,
+.next-steps li {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.reasons-list li:last-child,
+.next-steps li:last-child {
+  margin-bottom: 0;
+}
+
 .retry-btn,
 .continue-btn {
   margin-top: 1rem;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
   background: #4f46e5;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
   width: 100%;
 }
 
@@ -927,37 +1132,121 @@ if (typeof window !== 'undefined') {
   display: flex;
   gap: 1rem;
   padding: 1.5rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #f1f5f9;
 }
 
 .btn-secondary {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.6rem;
   background: #f1f5f9;
   color: #64748b;
   border: none;
-  border-radius: 8px;
-  font-weight: 600;
+  border-radius: 10px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
   background: #e2e8f0;
 }
 
+.admin-section {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-left: 4px solid #f59e0b;
+  margin: 0.5rem 0;
+}
+
+.admin-section h4 {
+  color: #92400e;
+}
+
+.admin-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  color: #92400e;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.admin-link:hover {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.admin-badge {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 0.65rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.pending-count {
+  background: #ef4444;
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+  margin-left: auto;
+}
+
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .navbar {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
   }
 
-  .brand-link {
+  .brand-text {
     font-size: 1.2rem;
   }
 
   .sidenav {
-    width: 250px;
+    width: 280px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidenav {
+    width: 260px;
+  }
+
+  .modal-content {
+    width: 95%;
   }
 }
 </style>

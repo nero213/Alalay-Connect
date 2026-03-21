@@ -233,3 +233,13 @@ export const getProfilePricing = async () => {
     throw error
   }
 }
+
+export const getMySkilledProfile = async () => {
+  try {
+    const response = await API.get('/skilled_profiles/me', getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching profile:', error.response?.data || error.message)
+    throw error
+  }
+}

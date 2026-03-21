@@ -218,7 +218,7 @@ onMounted(() => {
                     </div>
                     <div class="professional-info">
                         <h2>{{ professional.fullName }}</h2>
-                        <p class="skill">{{ professional.skill_name }}</p>
+                        <p class="skill">Skilled</p>
                         <div class="rating">
                             <span class="stars">{{ '★'.repeat(Math.floor(professional.average_rating || 0)) }}</span>
                             <span>({{ professional.total_ratings || 0 }} reviews)</span>

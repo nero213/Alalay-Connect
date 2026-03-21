@@ -36,6 +36,9 @@
                 <button @click="filterType = 'message'" :class="['tab-btn', { active: filterType === 'message' }]">
                     Messages
                 </button>
+                <button @click="filterType = 'system'" :class="['tab-btn', { active: filterType === 'system' }]">
+                    System
+                </button>
             </div>
 
             <!-- Loading State -->
@@ -69,6 +72,9 @@
                             </span>
                             <span v-if="notification.type === 'payment'" class="meta-badge payment">
                                 Payment
+                            </span>
+                            <span v-if="notification.type === 'system'" class="meta-badge system">
+                                System
                             </span>
                             <span class="notification-type">{{ getNotificationTypeLabel(notification.type) }}</span>
                         </div>
@@ -104,6 +110,56 @@
                 </button>
             </div>
         </div>
+
+        <!-- System Notification Modal (for reports, warnings, etc.) -->
+        <div v-if="showSystemModal" class="modal-overlay" @click="closeSystemModal">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header" :class="systemModalType">
+                    <div class="modal-icon">
+                        <svg v-if="systemModalType === 'warning'" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M12 8V12M12 16H12.01M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                        </svg>
+                        <svg v-else-if="systemModalType === 'suspended'" width="32" height="32" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M18.364 5.63604L5.63604 18.364M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                stroke="currentColor" stroke-width="1.5" />
+                        </svg>
+                        <svg v-else width="32" height="32" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M12 8V12M12 16H12.01M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                stroke="currentColor" stroke-width="1.5" />
+                        </svg>
+                    </div>
+                    <h3>{{ systemModalTitle }}</h3>
+                    <button @click="closeSystemModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="system-message">
+                        <p>{{ systemModalMessage }}</p>
+                    </div>
+                    <div v-if="systemModalNotes" class="admin-notes">
+                        <div class="notes-header">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M17 3L21 7L7 21H3V17L17 3Z" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            <strong>Admin Notes:</strong>
+                        </div>
+                        <div class="notes-content">
+                            <p>{{ systemModalNotes }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="closeSystemModal" class="btn-primary">Got it</button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -124,7 +180,14 @@ const loading = ref(true)
 const notifications = ref([])
 const currentPage = ref(1)
 const hasMore = ref(false)
-const filterType = ref('all') // all, unread, booking, review, payment, message
+const filterType = ref('all')
+
+// System Modal state
+const showSystemModal = ref(false)
+const systemModalTitle = ref('')
+const systemModalMessage = ref('')
+const systemModalNotes = ref('')
+const systemModalType = ref('info') // info, warning, suspended
 
 // Get current user
 const user = computed(() => {
@@ -163,6 +226,7 @@ const filteredNotifications = computed(() => {
         case 'review':
         case 'payment':
         case 'message':
+        case 'system':
             filtered = filtered.filter(n => n.type === filterType.value)
             break
     }
@@ -178,7 +242,8 @@ const counts = computed(() => {
         booking: notifications.value.filter(n => n.type === 'booking').length,
         review: notifications.value.filter(n => n.type === 'review').length,
         payment: notifications.value.filter(n => n.type === 'payment').length,
-        message: notifications.value.filter(n => n.type === 'message').length
+        message: notifications.value.filter(n => n.type === 'message').length,
+        system: notifications.value.filter(n => n.type === 'system').length
     }
 })
 
@@ -227,6 +292,24 @@ const deleteNotification = async (notificationId) => {
     }
 }
 
+// Show system modal
+const showSystemModalWithContent = (title, message, notes = '', type = 'info') => {
+    systemModalTitle.value = title
+    systemModalMessage.value = message
+    systemModalNotes.value = notes
+    systemModalType.value = type
+    showSystemModal.value = true
+}
+
+// Close system modal
+const closeSystemModal = () => {
+    showSystemModal.value = false
+    systemModalTitle.value = ''
+    systemModalMessage.value = ''
+    systemModalNotes.value = ''
+    systemModalType.value = 'info'
+}
+
 // Handle notification click
 const handleNotificationClick = (notification) => {
     markAsRead(notification.notification_id)
@@ -254,23 +337,82 @@ const handleNotificationClick = (notification) => {
         case 'payment':
             if (data.booking_id) {
                 router.push(`/bookings/${data.booking_id}?tab=payment`)
+            } else {
+                router.push('/payments')
             }
             break
 
         case 'review':
             if (data.skilled_id) {
                 router.push(`/skilled-profile/${data.skilled_id}?tab=reviews`)
+            } else if (data.booking_id) {
+                router.push(`/bookings/${data.booking_id}?tab=review`)
             }
             break
 
         case 'message':
+            // Use query parameters for message routing
             if (data.conversation_id) {
-                router.push(`/messages/${data.conversation_id}`)
-            } else if (data.skilled_id || data.client_id) {
-                const userId = data.skilled_id || data.client_id
-                router.push(`/messages?user=${userId}`)
+                router.push(`/messages?conversation=${data.conversation_id}`)
+            } else if (data.skilled_id) {
+                router.push(`/messages?skilled=${data.skilled_id}`)
+            } else if (data.client_id) {
+                router.push(`/messages?client=${data.client_id}`)
             }
             break
+
+        case 'system':
+            // Handle system notifications with modal instead of alert
+            if (data.action === 'report_resolved') {
+                showSystemModalWithContent(
+                    'Report Resolved',
+                    notification.message,
+                    data.admin_notes,
+                    'info'
+                )
+            } else if (data.action === 'warning' || data.action === 'warning issued') {
+                showSystemModalWithContent(
+                    'Account Warning',
+                    notification.message,
+                    data.admin_notes,
+                    'warning'
+                )
+            } else if (data.action === 'user suspended') {
+                showSystemModalWithContent(
+                    'Account Suspended',
+                    notification.message,
+                    data.admin_notes,
+                    'suspended'
+                )
+                // If the current user is the one suspended, log them out after modal closes
+                if (user.value?.id === data.user_id) {
+                    const checkModalClose = setInterval(() => {
+                        if (!showSystemModal.value) {
+                            clearInterval(checkModalClose)
+                            localStorage.removeItem('token')
+                            localStorage.removeItem('user')
+                            router.push('/login')
+                        }
+                    }, 500)
+                }
+            } else if (data.action === 'verification') {
+                if (user.value?.role === 'admin') {
+                    router.push('/admin/verification')
+                } else {
+                    router.push('/profile?tab=verification')
+                }
+            } else {
+                showSystemModalWithContent(
+                    'System Notification',
+                    notification.message,
+                    data.admin_notes,
+                    'info'
+                )
+            }
+            break
+
+        default:
+            router.push('/notifications')
     }
 }
 
@@ -281,6 +423,7 @@ const getNotificationIcon = (type) => {
         case 'payment': return '💰'
         case 'review': return '⭐'
         case 'message': return '💬'
+        case 'system': return '⚙️'
         default: return '🔔'
     }
 }
@@ -291,6 +434,7 @@ const getNotificationTypeLabel = (type) => {
         case 'payment': return 'Payment'
         case 'review': return 'Review'
         case 'message': return 'Message'
+        case 'system': return 'System'
         default: return 'Notification'
     }
 }
@@ -494,6 +638,11 @@ onMounted(() => {
     color: #991b1b;
 }
 
+.notification-icon.system {
+    background: #e2e8f0;
+    color: #475569;
+}
+
 .notification-content {
     flex: 1;
     cursor: pointer;
@@ -523,6 +672,7 @@ onMounted(() => {
     font-size: 0.9rem;
     line-height: 1.5;
     margin: 0 0 0.5rem 0;
+    white-space: pre-wrap;
 }
 
 .notification-meta {
@@ -552,6 +702,11 @@ onMounted(() => {
 .meta-badge.payment {
     background: #e0e7ff;
     color: #4f46e5;
+}
+
+.meta-badge.system {
+    background: #e2e8f0;
+    color: #475569;
 }
 
 .notification-type {
@@ -667,6 +822,178 @@ onMounted(() => {
     box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
 }
 
+/* System Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    backdrop-filter: blur(3px);
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 24px;
+    max-width: 450px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    position: relative;
+}
+
+.modal-header.warning {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.modal-header.suspended {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.modal-header.info {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+}
+
+.modal-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-icon svg {
+    stroke: white;
+}
+
+.modal-header h3 {
+    flex: 1;
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.system-message p {
+    color: #475569;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.admin-notes {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-left: 3px solid #4f46e5;
+}
+
+.notes-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #4f46e5;
+}
+
+.notes-header svg {
+    stroke: currentColor;
+}
+
+.notes-content p {
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #f1f5f9;
+    text-align: center;
+}
+
+.btn-primary {
+    padding: 0.6rem 1.5rem;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .page-header {
@@ -683,6 +1010,10 @@ onMounted(() => {
 
     .notification-actions {
         flex-direction: column;
+    }
+
+    .modal-header {
+        flex-wrap: wrap;
     }
 }
 </style>

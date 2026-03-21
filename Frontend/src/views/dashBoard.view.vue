@@ -23,6 +23,97 @@ const quickBooking = ref({
 // Min date for booking (today)
 const minDate = new Date().toISOString().split('T')[0]
 
+// SVG icon mapping for skills
+const getSkillIconSvg = (skillName) => {
+    const icons = {
+        'search': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
+        'Electrician': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
+        'Plumber': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.5 8.5L21 3M21 3L16.5 8.5M21 3H16M21 3V8M12 8L8 12M8 12L12 16L8 12ZM8 12L3 7M8 12L3 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
+        'Carpenter': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 12L12 22L22 12L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 6L6 12L12 18L18 12L12 6Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
+        'Welder': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C12 2 8 8 8 12C8 14.1217 8.84285 16.1566 10.3431 17.6569C11.8434 19.1571 13.8783 20 16 20C18.1217 20 20.1566 19.1571 21.6569 17.6569C23.1571 16.1566 24 14.1217 24 12C24 6 18 2 18 2C18 4 16 6 16 6C16 4 14 2 14 2C14 4 12 6 12 6C12 4 12 2 12 2Z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>`,
+        'Painter': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 8V16M8 12H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Mason': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 7V17M12 7V17M16 7V17M3 12H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Technician': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 18H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>`,
+        'Driver': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 13L4 9C4 8.44772 4.44772 8 5 8H19C19.5523 8 20 8.44772 20 9L19 13M5 13H19M5 13V17H7V13M19 13V17H17V13M7 13H17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="7" cy="17" r="2" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="17" cy="17" r="2" stroke="currentColor" stroke-width="1.5"/>
+                </svg>`,
+        'Cook': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 8L8 10M18 8L16 10M12 6V12M12 12L10 14M12 12L14 14M8 16H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M4 4L8 8M20 4L16 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 22C16.4183 22 20 18.4183 20 14V6H4V14C4 18.4183 7.58172 22 12 22Z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>`,
+        'Housekeeper': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 12L14 14M14 10L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Laundry Services': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 8H20V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V8Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 4L4 8M16 4L20 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Tutor': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 4H8C10.2091 4 12 5.79086 12 8V20C12 18.8954 11.1046 18 10 18H4V4Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M20 4H16C13.7909 4 12 5.79086 12 8V20C12 18.8954 12.8954 18 14 18H20V4Z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>`,
+        'Computer Repair': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="4" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 20H16M12 16V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Gardener': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C12 2 8 6 8 10C8 12.2091 9.79086 14 12 14C14.2091 14 16 12.2091 16 10C16 6 12 2 12 2Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 14V22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Handyman': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.5 8.5L21 3M21 3L16.5 8.5M21 3H16M21 3V8M12 8L8 12M8 12L12 16L8 12ZM8 12L3 7M8 12L3 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`,
+        'Security Guard': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L3 6V12C3 17.5 12 22 12 22C12 22 21 17.5 21 12V6L12 2Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 8V16M8 12H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Massage Therapist': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 8C13.6569 8 15 6.65685 15 5C15 3.34315 13.6569 2 12 2C10.3431 2 9 3.34315 9 5C9 6.65685 10.3431 8 12 8Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 22V15M12 15L8 11M12 15L16 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Barber': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 15C14.2091 15 16 13.2091 16 11C16 8.79086 14.2091 7 12 7C9.79086 7 8 8.79086 8 11C8 13.2091 9.79086 15 12 15Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M5 5L9 9M19 5L15 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'Event Coordinator': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>`,
+        'DJ': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 8C14.2091 8 16 6.20914 16 4C16 1.79086 14.2091 0 12 0C9.79086 0 8 1.79086 8 4C8 6.20914 9.79086 8 12 8Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 8V16M8 12H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>`,
+        'default': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 7H4C2.89543 7 2 7.89543 2 9V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19V9C22 7.89543 21.1046 7 20 7Z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M16 21V5C16 3.89543 15.1046 3 14 3H10C8.89543 3 8 3.89543 8 5V21" stroke="currentColor" stroke-width="1.5"/>
+                </svg>`
+    }
+    return icons[skillName] || icons['default']
+}
+
 // Load categories from database
 const loadCategories = async () => {
     try {
@@ -32,40 +123,12 @@ const loadCategories = async () => {
             ...skills.map(skill => ({
                 id: skill.skill_id,
                 name: skill.name,
-                icon: getIconForSkill(skill.name)
+                icon: skill.name
             }))
         ]
     } catch (error) {
         console.error('Error loading categories:', error)
     }
-}
-
-// Get icon based on skill name
-const getIconForSkill = (skillName) => {
-    const icons = {
-        'Electrician': '⚡',
-        'Plumber': '🔧',
-        'Carpenter': '🪚',
-        'Welder': '🔥',
-        'Painter': '🎨',
-        'Mason': '🧱',
-        'Technician': '📱',
-        'Driver': '🚗',
-        'Cook': '👨‍🍳',
-        'Housekeeper': '🧹',
-        'Laundry Services': '🧺',
-        'Tutor': '📚',
-        'Computer Repair': '💻',
-        'Gardener': '🌱',
-        'Handyman': '🛠️',
-        'Security Guard': '🛡️',
-        'Massage Therapist': '💆',
-        'Barber': '💇',
-        'Event Coordinator': '🎉',
-        'DJ': '🎧',
-        'default': '🔧'
-    }
-    return icons[skillName] || '🔧'
 }
 
 // Get user location
@@ -81,7 +144,6 @@ const getUserLocation = () => {
             },
             (error) => {
                 console.error('Error getting location:', error)
-                // Default to Metro Manila
                 userLocation.value = {
                     lat: 14.5995,
                     lng: 120.9842
@@ -276,18 +338,7 @@ onMounted(() => {
                 <div class="categories-scroll">
                     <button v-for="category in categories" :key="category.id" @click="changeCategory(category.id)"
                         :class="['category-pill', { 'pill-active': selectedCategory === category.id }]">
-                        <span class="pill-icon">
-                            <span v-if="category.icon === 'search'">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-                                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                        stroke-linejoin="round" />
-                                </svg>
-                            </span>
-                            <span v-else>{{ category.icon }}</span>
-                        </span>
+                        <span class="pill-icon" v-html="getSkillIconSvg(category.icon)"></span>
                         <span class="pill-name">{{ category.name }}</span>
                     </button>
                 </div>
@@ -335,7 +386,7 @@ onMounted(() => {
 
                         <div class="card-info">
                             <h3 class="professional-name">{{ worker.fullName }}</h3>
-                            <p class="professional-skill">{{ worker.skill_name || 'Professional' }}</p>
+                            <p class="professional-skill">{{ worker.name || 'Skilled' }}</p>
 
                             <div class="rating-container">
                                 <span class="stars">{{ getRatingStars(worker.average_rating) }}</span>
@@ -443,7 +494,11 @@ onMounted(() => {
                     <div class="modal-head">
                         <h3 class="modal-title">Quick Book</h3>
                         <button @click="closeQuickBook" class="modal-close" aria-label="Close modal">
-                            <span>×</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
                         </button>
                     </div>
 
@@ -453,7 +508,7 @@ onMounted(() => {
                                 class="preview-image">
                             <div class="preview-details">
                                 <h4 class="preview-name">{{ selectedWorker.fullName }}</h4>
-                                <p class="preview-skill">{{ selectedWorker.skill_name }}</p>
+                                <p class="preview-skill">Skilled</p>
                                 <div class="preview-rating">
                                     <span class="stars">{{ getRatingStars(selectedWorker.average_rating) }}</span>
                                     <span class="rating-text">({{ selectedWorker.total_ratings || 0 }} reviews)</span>
@@ -537,7 +592,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Keep all existing styles, update SVG-specific styles */
+/* Keep all existing styles - they remain unchanged */
 .estimated-total {
     display: flex;
     justify-content: space-between;
@@ -804,7 +859,6 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
 }
 
 .pill-icon svg {
@@ -1203,7 +1257,6 @@ onMounted(() => {
     border: none;
     background: #f1f5f9;
     border-radius: 50%;
-    font-size: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1212,9 +1265,14 @@ onMounted(() => {
     color: #64748b;
 }
 
+.modal-close svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+}
+
 .modal-close:hover {
     background: #e2e8f0;
-    transform: rotate(90deg);
     color: #ef4444;
 }
 

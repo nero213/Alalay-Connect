@@ -118,6 +118,8 @@ import {
     markAsRead as apiMarkAsRead,
     markAllAsRead as apiMarkAllAsRead
 } from '@/api/notificationService'
+import { getUnreadMessageCount } from '@/api/messageService'
+
 
 const router = useRouter()
 const showDropdown = ref(false)
@@ -249,28 +251,32 @@ const handleNotificationClick = (notification) => {
 
         case 'message':
             if (data.conversation_id) {
-                router.push(`/messages/${data.conversation_id}`)
+                // Use query parameter instead of path parameter
+                router.push(`/messages?conversation=${data.conversation_id}`)
             } else if (data.skilled_id) {
-                router.push(`/messages?user=${data.skilled_id}`)
+                router.push(`/messages?skilled=${data.skilled_id}`)
             } else if (data.client_id) {
-                router.push(`/messages?user=${data.client_id}`)
+                router.push(`/messages?client=${data.client_id}`)
             }
             break
 
         case 'system':
+            // System notifications might go to different places
             if (data.action === 'verification') {
                 if (user.value?.role === 'admin') {
                     router.push('/admin/verifications')
                 } else {
                     router.push('/profile?tab=verification')
                 }
+            } else if (data.action === 'report_resolved') {
+
+                router.push('/notifications')
             } else if (data.action === 'profile') {
                 router.push('/profile')
             } else {
                 router.push('/notifications')
             }
             break
-
         default:
             router.push('/notifications')
     }
@@ -335,6 +341,15 @@ onMounted(() => {
         clearInterval(interval)
         document.removeEventListener('click', handleClickOutside)
     })
+
+    const loadUnreadMessageCount = async () => {
+        try {
+            const response = await getUnreadMessageCount()
+            // Add to total unread count or separate badge
+        } catch (error) {
+            console.error('Error loading unread message count:', error)
+        }
+    }
 })
 </script>
 

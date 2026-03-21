@@ -17,6 +17,12 @@ import SkilledBookings from '@/views/SkilledBookings.vue'
 import RescheduleBooking from '@/views/RescheduleBooking.vue'
 import Notifications from '@/views/Notifications.vue'
 import Favorites from '@/views/Favorites.vue'
+import AdminDashboard from '@/views/admin/AdminDashboard.vue'
+import AdminUsers from '@/views/admin/AdminUsers.vue'
+import AdminVerification from '@/views/admin/AdminVerification.vue'
+import AdminSkills from '@/views/admin/AdminSkills.vue'
+import AdminReports from '@/views/admin/AdminReports.vue'
+import Messages from '@/views/Messages.vue'
 
 const routes = [
   {
@@ -44,11 +50,13 @@ const routes = [
     path: '/dashboard',
     name: 'dashboard',
     component: dashBoardView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/becomeSkilled',
     name: 'becomeSkilled',
     component: BecomeProfessional,
+    meta: { requiresAuth: true },
   },
   {
     path: '/SkilledProfile',
@@ -119,6 +127,50 @@ const routes = [
     name: 'Favorites',
     component: Favorites,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/messages',
+    name: 'Messages',
+    component: Messages,
+    meta: { requiresAuth: true },
+  },
+
+  {
+    path: '/admin',
+    redirect: '/admin/dashboard',
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'AdminDashboard',
+        component: AdminDashboard,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'users',
+        name: 'AdminUsers',
+        component: AdminUsers,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'verification',
+        name: 'AdminVerification',
+        component: AdminVerification,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'skills',
+        name: 'AdminSkills',
+        component: AdminSkills,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'reports',
+        name: 'AdminReports',
+        component: AdminReports,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+    ],
   },
 ]
 

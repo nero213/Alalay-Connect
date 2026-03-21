@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import noSearchNavbar from '@/components/noSearchNavbar.vue'
 import RatingModal from '@/components/ratingModal.vue'
+import ReportModal from '@/components/ReportModal.vue'
 import { getPublicSkilledProfile } from '@/api/skilledProfiles'
 import { getSkilledRatings, checkUserRating } from '@/api/ratingService'
 import { addToFavorites, removeFromFavorites, checkFavorite } from '@/api/favoritesService'
@@ -18,6 +19,7 @@ const showAllReviews = ref(false)
 const isFavorite = ref(false)
 const favoriteLoading = ref(false)
 const showRatingModal = ref(false)
+const showReportModal = ref(false)
 const userRating = ref(null)
 const currentPage = ref(1)
 const hasMoreRatings = ref(false)
@@ -147,6 +149,17 @@ const openRatingModal = () => {
     showRatingModal.value = true
 }
 
+// Open report modal
+const openReportModal = () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+        alert('Please log in to report')
+        router.push('/login')
+        return
+    }
+    showReportModal.value = true
+}
+
 // Handle rating submitted
 const handleRatingSubmitted = () => {
     loadRatings(1)
@@ -206,8 +219,14 @@ const bookNow = () => {
     router.push(`/booking/${professional.value?.skilled_id}`)
 }
 
-const contactProfessional = () => {
-    alert('Messaging feature coming soon!')
+const messageNow = () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+        alert('Please log in to send a message')
+        router.push('/login')
+        return
+    }
+    router.push(`/messages?skilled=${professional.value?.user_id}`)
 }
 
 const shareProfile = () => {
@@ -282,7 +301,7 @@ onMounted(() => {
 
                         <div class="profile-title-section">
                             <h1 class="profile-name">{{ professional.fullName }}</h1>
-                            <p class="profile-skill">{{ professional.skill_name || 'Professional' }}</p>
+                            <p class="profile-skill"> Skilled</p>
 
                             <div class="profile-badges">
                                 <div class="badge-item">
@@ -364,7 +383,8 @@ onMounted(() => {
                                 </span>
                                 Book Now
                             </button>
-                            <button @click="contactProfessional" class="action-button secondary">
+
+                            <button @click="messageNow" class="action-button secondary">
                                 <span class="action-icon">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
@@ -378,6 +398,7 @@ onMounted(() => {
                                 </span>
                                 Message
                             </button>
+
                             <button @click="toggleFavorite" class="action-icon-button"
                                 :class="{ 'favorite-active': isFavorite }" :disabled="favoriteLoading"
                                 :title="isFavorite ? 'Remove from favorites' : 'Save to favorites'">
@@ -397,6 +418,7 @@ onMounted(() => {
                                     </svg>
                                 </span>
                             </button>
+
                             <button @click="shareProfile" class="action-icon-button" title="Share profile">
                                 <span class="share-icon">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -404,6 +426,17 @@ onMounted(() => {
                                         <path
                                             d="M18 8C19.6569 8 21 6.65685 21 5C21 3.34315 19.6569 2 18 2C16.3431 2 15 3.34315 15 5C15 5.125 15.0117 5.2465 15.0339 5.364L8.084 9.264C7.428 8.485 6.58 8 5.5 8C3.84315 8 2.5 9.34315 2.5 11C2.5 12.6569 3.84315 14 5.5 14C6.58 14 7.428 13.515 8.084 12.736L15.034 16.636C15.0117 16.7535 15 16.875 15 17C15 18.6569 16.3431 20 18 20C19.6569 20 21 18.6569 21 17C21 15.3431 19.6569 14 18 14C16.92 14 16.072 14.485 15.416 15.264L8.466 11.364C8.4883 11.2465 8.5 11.125 8.5 11C8.5 10.875 8.4883 10.7535 8.466 10.636L15.416 6.736C16.072 7.515 16.92 8 18 8Z"
                                             fill="currentColor" />
+                                    </svg>
+                                </span>
+                            </button>
+
+                            <button @click="openReportModal" class="action-icon-button report-btn" title="Report">
+                                <span class="report-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M12 8V12M12 16H12.01M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
                                     </svg>
                                 </span>
                             </button>
@@ -419,7 +452,7 @@ onMounted(() => {
                         <section class="content-card">
                             <div class="card-header">
                                 <h2 class="card-title">About Me</h2>
-                                <span class="card-badge">Professional</span>
+                                <span class="card-badge">Skilled</span>
                             </div>
                             <p class="bio-text">{{ professional.bio || 'No bio provided yet.' }}</p>
 
@@ -658,11 +691,25 @@ onMounted(() => {
         <RatingModal v-if="showRatingModal" :skilledId="professional?.skilled_id"
             :professionalName="professional?.fullName" :userRating="userRating" @close="showRatingModal = false"
             @submitted="handleRatingSubmitted" />
+
+        <!-- Report Modal -->
+        <ReportModal v-if="showReportModal" reportType="Profile" :reportedUserId="professional?.user_id"
+            :reportedSkillId="professional?.skilled_id" @close="showReportModal = false" />
     </div>
 </template>
 
 <style scoped>
-/* Keep all existing styles - they remain unchanged */
+/* Add report button style */
+.report-btn {
+    color: #ef4444;
+}
+
+.report-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Keep all existing styles */
 .public-profile {
     min-height: 100vh;
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -885,6 +932,7 @@ onMounted(() => {
     display: flex;
     gap: 0.75rem;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .action-button {
@@ -946,6 +994,15 @@ onMounted(() => {
 
 .action-icon-button.favorite-active:hover {
     background: #fecaca;
+}
+
+.report-btn {
+    color: #ef4444;
+}
+
+.report-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
 .spinner-small {

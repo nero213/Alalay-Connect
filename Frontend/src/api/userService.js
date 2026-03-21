@@ -12,10 +12,13 @@ const getAuthHeader = () => {
 // this is the api for LoginUsers
 export const loginUser = async (credentials) => {
   try {
+    // console.log('Attempting login with:', credentials.email)
     const response = await API.post('/auth/login', credentials)
+    // console.log('Login response:', response.data)
     return response
   } catch (error) {
-    console.error('Login error:', error)
+    console.error('Login error in service:', error.response?.data || error.message)
+    console.error('Status:', error.response?.status)
     throw error
   }
 }

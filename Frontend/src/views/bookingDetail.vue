@@ -25,16 +25,31 @@ const availableSlots = ref([])
 // Min date for reschedule (today)
 const minDate = new Date().toISOString().split('T')[0]
 
-// Status icon mapping
+// Status icon mapping with SVGs
 const statusIcon = computed(() => {
     const status = booking.value?.status
     switch (status) {
-        case 'pending': return '⏳'
-        case 'confirmed': return '✅'
-        case 'completed': return '🎉'
-        case 'cancelled': return '❌'
-        case 'no_show': return '⚠️'
-        default: return '📅'
+        case 'pending':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>`
+        case 'confirmed':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`
+        case 'completed':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z" fill="currentColor" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>`
+        case 'cancelled':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`
+        default:
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>`
     }
 })
 
@@ -58,13 +73,7 @@ const loadBooking = async () => {
 
     try {
         const bookingId = route.params.id
-
-        console.log('Loading booking with ID:', bookingId)
-
         const response = await getBookingById(bookingId)
-
-        console.log('Booking data:', response)
-
         booking.value = response.booking
     } catch (err) {
         console.error('Error loading booking:', err)
@@ -169,7 +178,7 @@ const submitReschedule = async () => {
         )
 
         closeRescheduleModal()
-        await loadBooking() // Reload booking with new data
+        await loadBooking()
         alert('Booking rescheduled successfully')
     } catch (err) {
         alert(err.response?.data?.message || 'Failed to reschedule booking')
@@ -207,7 +216,11 @@ onMounted(() => {
         <div class="booking-detail-container">
             <div class="booking-detail-header">
                 <button @click="goBack" class="back-btn">
-                    ← Back to My Bookings
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                    Back to My Bookings
                 </button>
                 <h1>Booking Details</h1>
             </div>
@@ -220,6 +233,11 @@ onMounted(() => {
 
             <!-- Error State -->
             <div v-else-if="error" class="error-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 8V12M12 16H12.01M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                        stroke="currentColor" stroke-width="1.5" />
+                </svg>
                 <p>{{ error }}</p>
                 <button @click="loadBooking" class="retry-btn">Try Again</button>
             </div>
@@ -228,14 +246,25 @@ onMounted(() => {
             <div v-else-if="booking" class="booking-detail-card">
                 <!-- Status Banner -->
                 <div class="status-banner" :class="booking.status">
-                    <span class="status-icon">{{ statusIcon }}</span>
+                    <span class="status-icon" v-html="statusIcon"></span>
                     <span class="status-text">Booking {{ booking.status }}</span>
                 </div>
 
                 <div class="detail-grid">
                     <!-- Left Column - Professional Info -->
                     <div class="info-section">
-                        <h2>Professional Details</h2>
+                        <h2>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+                                    stroke="currentColor" stroke-width="1.5" />
+                                <path
+                                    d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                                    stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            Professional Details
+                        </h2>
 
                         <div class="professional-detail">
                             <img :src="professionalImage" :alt="booking.skilled_firstName"
@@ -251,19 +280,44 @@ onMounted(() => {
                         </div>
 
                         <div class="info-row">
-                            <span class="info-label">Contact:</span>
+                            <span class="info-label">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M22 16.92V19.92C22.0001 20.1985 21.944 20.4742 21.8356 20.7293C21.7271 20.9845 21.5686 21.2136 21.3701 21.4019C21.1716 21.5901 20.9377 21.7335 20.6829 21.8227C20.4282 21.9119 20.1578 21.9451 19.89 21.92C16.672 21.5856 13.5881 20.534 10.87 18.85C8.33805 17.2857 6.17423 15.2022 4.52 12.74C2.82233 10.2335 1.78005 7.36284 1.5 4.36C1.47466 4.09269 1.50768 3.82278 1.59677 3.56839C1.68586 3.31399 1.8291 3.08045 2.01725 2.88222C2.20541 2.68399 2.43446 2.52569 2.68966 2.41743C2.94486 2.30917 3.22064 2.25322 3.5 2.25322H6.5C7.024 2.25322 7.5 2.62322 7.62 3.13322L8.32 6.33322C8.425 6.81322 8.2 7.29322 7.83 7.58322L5.81 9.19322C7.293 12.0852 9.498 14.2792 12.4 15.7702L14.02 13.7502C14.31 13.3802 14.79 13.1552 15.27 13.2602L18.47 13.9602C18.98 14.0802 19.35 14.5562 19.35 15.0802V18.0802C19.35 18.4492 19.095 18.7712 18.73 18.8302L18.47 18.86Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                                Contact:
+                            </span>
                             <span class="info-value">{{ booking.skilled_phone || 'Not provided' }}</span>
                         </div>
 
                         <div class="info-row">
-                            <span class="info-label">Email:</span>
+                            <span class="info-label">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                    <path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="1.5" />
+                                </svg>
+                                Email:
+                            </span>
                             <span class="info-value">{{ booking.skilled_email || 'Not provided' }}</span>
                         </div>
                     </div>
 
                     <!-- Right Column - Booking Info -->
                     <div class="info-section">
-                        <h2>Booking Information</h2>
+                        <h2>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor"
+                                    stroke-width="1.5" />
+                                <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            Booking Information
+                        </h2>
 
                         <div class="info-row">
                             <span class="info-label">Booking ID:</span>
@@ -302,7 +356,15 @@ onMounted(() => {
 
                     <!-- Payment Section -->
                     <div class="info-section full-width">
-                        <h2>Payment Details</h2>
+                        <h2>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M12 2V4M12 20V22M4 12H2M6.5 6.5L5 5M17.5 17.5L19 19M22 12H20M18 6L19 5M5 19L6.5 17.5M12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8Z"
+                                    stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            Payment Details
+                        </h2>
 
                         <div class="payment-summary">
                             <div class="payment-row">
@@ -321,11 +383,26 @@ onMounted(() => {
 
                     <!-- Timeline Section -->
                     <div class="info-section full-width">
-                        <h2>Booking Timeline</h2>
+                        <h2>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                                    stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            Booking Timeline
+                        </h2>
 
                         <div class="timeline">
                             <div class="timeline-item">
-                                <div class="timeline-icon">📅</div>
+                                <div class="timeline-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor"
+                                            stroke-width="1.5" />
+                                        <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5" />
+                                    </svg>
+                                </div>
                                 <div class="timeline-content">
                                     <h4>Booking Created</h4>
                                     <p>{{ formatFullDate(booking.created_at) }}</p>
@@ -333,7 +410,13 @@ onMounted(() => {
                             </div>
 
                             <div class="timeline-item" v-if="booking.status !== 'pending'">
-                                <div class="timeline-icon">✅</div>
+                                <div class="timeline-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </div>
                                 <div class="timeline-content">
                                     <h4>Booking {{ booking.status }}</h4>
                                     <p>{{ formatFullDate(booking.updated_at) }}</p>
@@ -341,7 +424,14 @@ onMounted(() => {
                             </div>
 
                             <div class="timeline-item" v-if="booking.status === 'completed'">
-                                <div class="timeline-icon">⭐</div>
+                                <div class="timeline-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"
+                                            fill="currentColor" stroke="currentColor" stroke-width="1.5" />
+                                    </svg>
+                                </div>
                                 <div class="timeline-content">
                                     <h4>Ready for Review</h4>
                                     <p>Leave a review for this professional</p>
@@ -356,18 +446,38 @@ onMounted(() => {
                     <button v-if="booking.status === 'pending' || booking.status === 'confirmed'" @click="cancelBooking"
                         class="btn-cancel" :disabled="cancelling">
                         <span v-if="cancelling" class="spinner-small"></span>
+                        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
                         {{ cancelling ? 'Cancelling...' : 'Cancel Booking' }}
                     </button>
 
                     <button v-if="booking.status === 'confirmed'" @click="openRescheduleModal" class="btn-reschedule">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M12 4V12L16 16M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                stroke="white" stroke-width="1.5" />
+                        </svg>
                         Reschedule
                     </button>
 
                     <button v-if="booking.status === 'completed'" @click="leaveReview" class="btn-review">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"
+                                fill="currentColor" stroke="currentColor" stroke-width="1.5" />
+                        </svg>
                         Leave Review
                     </button>
 
                     <button @click="contactProfessional" class="btn-contact">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
+                                stroke="white" stroke-width="1.5" />
+                            <path d="M8 9H16M8 13H13" stroke="white" stroke-width="1.5" />
+                        </svg>
                         Message Professional
                     </button>
                 </div>
@@ -379,17 +489,36 @@ onMounted(() => {
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
                     <h3>Reschedule Booking</h3>
-                    <button @click="closeRescheduleModal" class="close-btn">&times;</button>
+                    <button @click="closeRescheduleModal" class="close-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
                 </div>
                 <div class="modal-body">
                     <div class="booking-summary">
-                        <p><strong>Current Date:</strong> {{ formatFullDate(booking?.service_date) }}</p>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
+                            <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5" />
+                        </svg>
+                        <div>
+                            <p><strong>Current Date:</strong> {{ formatFullDate(booking?.service_date) }}</p>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label>Select New Date <span class="required">*</span></label>
-                        <input type="date" v-model="rescheduleForm.date" :min="minDate" @change="loadAvailableSlots"
-                            class="form-input">
+                        <div class="date-input-wrapper">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor"
+                                    stroke-width="1.5" />
+                                <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            <input type="date" v-model="rescheduleForm.date" :min="minDate" @change="loadAvailableSlots"
+                                class="form-input">
+                        </div>
                     </div>
 
                     <div class="form-group" v-if="rescheduleForm.date">
@@ -400,6 +529,12 @@ onMounted(() => {
                                     selected: rescheduleForm.selectedSlot === slot.time,
                                     unavailable: !slot.available
                                 }]" :disabled="!slot.available">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M12 8V12L15 15M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                                        stroke="currentColor" stroke-width="1.5" />
+                                </svg>
                                 {{ formatTime(slot.time) }}
                             </button>
                             <p v-if="availableSlots.length === 0" class="no-slots">
@@ -410,9 +545,15 @@ onMounted(() => {
 
                     <div class="form-group">
                         <label>Reason for rescheduling (optional)</label>
-                        <textarea v-model="rescheduleForm.reason"
-                            placeholder="Let the professional know why you need to reschedule..." rows="3"
-                            class="form-textarea"></textarea>
+                        <div class="textarea-wrapper">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M17 3L21 7L7 21H3V17L17 3Z" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            <textarea v-model="rescheduleForm.reason"
+                                placeholder="Let the professional know why you need to reschedule..." rows="3"
+                                class="form-textarea"></textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -429,7 +570,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Add these new styles for the modal */
+/* All existing styles remain the same, just update the modal-specific styles */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -437,21 +578,45 @@ onMounted(() => {
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1100;
-    backdrop-filter: blur(3px);
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .modal-content {
     background: white;
-    border-radius: 16px;
+    border-radius: 24px;
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .modal-header {
@@ -459,32 +624,35 @@ onMounted(() => {
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 2px solid #f1f5f9;
 }
 
 .modal-header h3 {
     margin: 0;
     color: #1e293b;
+    font-size: 1.25rem;
+    font-weight: 700;
 }
 
 .close-btn {
     background: none;
     border: none;
-    font-size: 1.5rem;
     cursor: pointer;
-    color: #666;
     padding: 0;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: 0.3s;
+    transition: all 0.3s ease;
+    color: #64748b;
 }
 
 .close-btn:hover {
     background: #f1f5f9;
+    color: #ef4444;
+    transform: rotate(90deg);
 }
 
 .modal-body {
@@ -492,10 +660,24 @@ onMounted(() => {
 }
 
 .booking-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     background: #f8fafc;
     padding: 1rem;
-    border-radius: 8px;
+    border-radius: 12px;
     margin-bottom: 1.5rem;
+    border-left: 3px solid #4f46e5;
+}
+
+.booking-summary svg {
+    stroke: #4f46e5;
+    flex-shrink: 0;
+}
+
+.booking-summary p {
+    margin: 0;
+    color: #475569;
 }
 
 .form-group {
@@ -505,22 +687,38 @@ onMounted(() => {
 .form-group label {
     display: block;
     margin-bottom: 0.5rem;
-    font-weight: 500;
+    font-weight: 600;
     color: #334155;
+    font-size: 0.9rem;
 }
 
 .required {
     color: #ef4444;
 }
 
+.date-input-wrapper,
+.textarea-wrapper {
+    position: relative;
+}
+
+.date-input-wrapper svg,
+.textarea-wrapper svg {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    stroke: #94a3b8;
+    pointer-events: none;
+}
+
 .form-input,
 .form-textarea {
     width: 100%;
-    padding: 0.75rem;
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 0.95rem;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
+    font-family: inherit;
 }
 
 .form-input:focus,
@@ -532,6 +730,7 @@ onMounted(() => {
 
 .form-textarea {
     resize: vertical;
+    min-height: 80px;
 }
 
 .time-slots {
@@ -542,15 +741,23 @@ onMounted(() => {
 }
 
 .time-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     padding: 0.75rem 0.5rem;
     background: #f8fafc;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 0.9rem;
     font-weight: 500;
     color: #1e293b;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
+}
+
+.time-slot svg {
+    stroke: currentColor;
 }
 
 .time-slot:hover:not(:disabled) {
@@ -560,7 +767,7 @@ onMounted(() => {
 }
 
 .time-slot.selected {
-    background: #4f46e5;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     border-color: #4f46e5;
     color: white;
 }
@@ -577,24 +784,30 @@ onMounted(() => {
     text-align: center;
     color: #64748b;
     padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
 }
 
 .modal-footer {
     display: flex;
     gap: 1rem;
     padding: 1.5rem;
-    border-top: 1px solid #eee;
+    border-top: 2px solid #f1f5f9;
 }
 
 .btn-cancel,
 .btn-submit {
     flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     padding: 0.75rem;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
 }
 
 .btn-cancel {
@@ -607,13 +820,13 @@ onMounted(() => {
 }
 
 .btn-submit {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: white;
 }
 
 .btn-submit:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
 }
 
 .btn-submit:disabled {
@@ -621,7 +834,17 @@ onMounted(() => {
     cursor: not-allowed;
 }
 
-/* Keep all your existing styles below */
+.spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+/* Keep all existing styles from the original component */
 .booking-detail-page {
     min-height: 100vh;
     background: #f8fafc;
@@ -641,23 +864,32 @@ onMounted(() => {
 }
 
 .back-btn {
-    padding: 0.5rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
     background: white;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
     color: #4f46e5;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
 }
 
 .back-btn:hover {
     background: #f1f5f9;
     border-color: #4f46e5;
+    transform: translateY(-2px);
+}
+
+.back-btn svg {
+    stroke: currentColor;
 }
 
 .booking-detail-header h1 {
     font-size: 1.8rem;
+    font-weight: 700;
     color: #1e293b;
     margin: 0;
 }
@@ -669,24 +901,13 @@ onMounted(() => {
 }
 
 .spinner {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     border: 4px solid #e0e7ff;
     border-top: 4px solid #4f46e5;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 1rem;
-}
-
-.spinner-small {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-    margin-right: 4px;
 }
 
 @keyframes spin {
@@ -699,27 +920,39 @@ onMounted(() => {
 .error-state {
     text-align: center;
     padding: 3rem;
-    background: #fee2e2;
-    border-radius: 12px;
+    background: #fef2f2;
+    border-radius: 20px;
     color: #991b1b;
+}
+
+.error-state svg {
+    stroke: #ef4444;
+    margin-bottom: 1rem;
 }
 
 .retry-btn {
     margin-top: 1rem;
-    padding: 0.5rem 1.5rem;
-    background: #991b1b;
+    padding: 0.6rem 1.5rem;
+    background: #ef4444;
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 10px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.retry-btn:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
 }
 
 /* Booking Detail Card */
 .booking-detail-card {
     background: white;
-    border-radius: 20px;
+    border-radius: 24px;
     overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
 }
 
 /* Status Banner */
@@ -750,13 +983,8 @@ onMounted(() => {
     color: #991b1b;
 }
 
-.status-banner.no_show {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-.status-icon {
-    font-size: 2rem;
+.status-icon svg {
+    stroke: currentColor;
 }
 
 .status-text {
@@ -776,7 +1004,7 @@ onMounted(() => {
 .info-section {
     background: #f8fafc;
     padding: 1.5rem;
-    border-radius: 12px;
+    border-radius: 16px;
 }
 
 .info-section.full-width {
@@ -784,11 +1012,18 @@ onMounted(() => {
 }
 
 .info-section h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     color: #1e293b;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     margin-bottom: 1.5rem;
     padding-bottom: 0.5rem;
     border-bottom: 2px solid #e2e8f0;
+}
+
+.info-section h2 svg {
+    stroke: #4f46e5;
 }
 
 .info-row {
@@ -801,6 +1036,13 @@ onMounted(() => {
     width: 120px;
     color: #64748b;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-label svg {
+    stroke: #94a3b8;
 }
 
 .info-value {
@@ -820,6 +1062,8 @@ onMounted(() => {
     height: 80px;
     border-radius: 50%;
     object-fit: cover;
+    border: 3px solid white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .professional-detail-info h3 {
@@ -840,14 +1084,14 @@ onMounted(() => {
 }
 
 .stars {
-    color: #ffc107;
+    color: #fbbf24;
 }
 
 /* Payment Section */
 .payment-summary {
     background: white;
     padding: 1rem;
-    border-radius: 8px;
+    border-radius: 12px;
 }
 
 .payment-row {
@@ -870,7 +1114,7 @@ onMounted(() => {
     margin-top: 1rem;
     padding: 0.5rem;
     text-align: center;
-    border-radius: 6px;
+    border-radius: 8px;
     font-weight: 500;
 }
 
@@ -882,11 +1126,6 @@ onMounted(() => {
 .payment-status.paid {
     background: #d1fae5;
     color: #065f46;
-}
-
-.payment-status.refunded {
-    background: #fee2e2;
-    color: #991b1b;
 }
 
 /* Timeline */
@@ -901,12 +1140,12 @@ onMounted(() => {
     gap: 1rem;
     padding: 1rem;
     background: white;
-    border-radius: 8px;
+    border-radius: 12px;
     border-left: 4px solid #4f46e5;
 }
 
-.timeline-icon {
-    font-size: 1.5rem;
+.timeline-icon svg {
+    stroke: #4f46e5;
 }
 
 .timeline-content h4 {
@@ -932,16 +1171,15 @@ onMounted(() => {
 .btn-reschedule,
 .btn-review,
 .btn-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.75rem 1.5rem;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    transition: all 0.3s ease;
 }
 
 .btn-cancel {
@@ -952,6 +1190,7 @@ onMounted(() => {
 .btn-cancel:hover:not(:disabled) {
     background: #dc2626;
     transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
 }
 
 .btn-cancel:disabled {
@@ -967,6 +1206,7 @@ onMounted(() => {
 .btn-reschedule:hover {
     background: #d97706;
     transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
 }
 
 .btn-review {
@@ -977,6 +1217,7 @@ onMounted(() => {
 .btn-review:hover {
     background: #059669;
     transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
 }
 
 .btn-contact {
@@ -988,12 +1229,15 @@ onMounted(() => {
 .btn-contact:hover {
     background: #4338ca;
     transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
     .detail-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1.5rem;
     }
 
     .info-section.full-width {
@@ -1016,12 +1260,20 @@ onMounted(() => {
     }
 
     .detail-actions {
-        flex-wrap: wrap;
+        flex-direction: column;
     }
 
     .btn-contact {
         margin-left: 0;
-        width: 100%;
+    }
+
+    .booking-detail-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .time-slots {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     }
 }
 </style>

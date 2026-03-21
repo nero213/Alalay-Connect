@@ -27,7 +27,7 @@
 
                     <div class="card-content">
                         <h3 class="worker-name">{{ worker.fullName }}</h3>
-                        <p class="worker-skill">{{ worker.skill_name || 'Professional' }}</p>
+                        <p class="worker-skill">Skilled</p>
 
                         <div class="worker-rating">
                             <span class="stars">{{ getRatingStars(worker.average_rating) }}</span>

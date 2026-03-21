@@ -2,6 +2,7 @@
 import { ref, reactive, computed } from 'vue'
 import { loginUser } from '@/api/userService'
 import { useRouter } from 'vue-router'
+import API from '@/api/axios' // Add this import
 
 const router = useRouter()
 
@@ -19,8 +20,8 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
-const verificationRequired = ref(false) // Add this
-const unverifiedEmail = ref('') // Add this
+const verificationRequired = ref(false)
+const unverifiedEmail = ref('')
 
 // Email validation
 const validateEmail = (email) => {
@@ -70,6 +71,23 @@ const loginWithFacebook = () => {
   window.location.href = facebookAuthUrl
 }
 
+// Role-based redirect
+const redirectBasedOnRole = (user) => {
+  switch (user.role) {
+    case 'skilled':
+      router.push('/SkilledProfile')
+      break
+    case 'resident':
+      router.push('/userProfile')
+      break
+    case 'admin':
+      router.push('/admin/dashboard')
+      break
+    default:
+      router.push('/dashboard')
+  }
+}
+
 const userLogin = async () => {
   // Validate all fields before submission
   validateField('email')
@@ -91,11 +109,12 @@ const userLogin = async () => {
       password: form.password,
     })
 
+
+
     // Check if verification is required
     if (res.data.requiresVerification) {
       verificationRequired.value = true
       unverifiedEmail.value = res.data.email || form.email.trim()
-
       errorMessage.value = res.data.message || 'Please verify your email before logging in.'
 
       setTimeout(() => {
@@ -104,7 +123,6 @@ const userLogin = async () => {
           query: { email: unverifiedEmail.value },
         })
       }, 2000)
-
       return
     }
 
@@ -130,14 +148,14 @@ const userLogin = async () => {
 
   } catch (err) {
     console.error('Login error:', err)
+    console.error('Error response:', err.response)
+    console.error('Error data:', err.response?.data)
 
     // Check if error is due to unverified email
     if (err.response?.data?.requiresVerification) {
       verificationRequired.value = true
       unverifiedEmail.value = err.response.data.email || form.email.trim()
-
-      errorMessage.value =
-        err.response.data.message || 'Please verify your email before logging in.'
+      errorMessage.value = err.response.data.message || 'Please verify your email before logging in.'
 
       setTimeout(() => {
         router.push({
@@ -146,31 +164,14 @@ const userLogin = async () => {
         })
       }, 2000)
     } else {
-      errorMessage.value =
-        err.response?.data?.message || 'Login failed. Please check your credentials.'
+      // Display the error message from the server
+      errorMessage.value = err.response?.data?.message || 'Login failed. Please check your credentials.'
     }
 
     // Clear password field on error
     form.password = ''
   } finally {
     loading.value = false
-  }
-}
-
-// Add this function for role-based redirect
-const redirectBasedOnRole = (user) => {
-  switch (user.role) {
-    case 'skilled':
-      router.push('/SkilledProfile')
-      break
-    case 'resident':
-      router.push('/userProfile')
-      break
-    case 'admin':
-      router.push('/admin/dashboard')
-      break
-    default:
-      router.push('/dashboard')
   }
 }
 
@@ -223,10 +224,8 @@ const resendVerification = async () => {
         </div>
       </div>
 
-      <!-- Normal login form (hide when showing verification) -->
+      <!-- Normal login form -->
       <form v-else @submit.prevent="userLogin" novalidate>
-        <!-- ... existing form fields ... -->
-
         <div class="input-group" :class="{ 'has-error': errors.email }">
           <label for="email">Email Address</label>
           <input id="email" v-model="form.email" type="email" placeholder="your@email.com" required
@@ -269,12 +268,21 @@ const resendVerification = async () => {
           Don't have an account?
           <router-link to="/register">Sign up now</router-link>
         </div>
+
+        <div class="forgot-password">
+          <router-link to="/forgot-password">Forgot password?</router-link>
+        </div>
       </form>
 
-      <!-- Message display (always show) -->
+      <!-- Message display -->
       <transition name="fade">
         <p v-if="successMessage && !verificationRequired" class="success-message">
           {{ successMessage }}
+        </p>
+      </transition>
+      <transition name="fade">
+        <p v-if="errorMessage && !verificationRequired" class="error-message">
+          {{ errorMessage }}
         </p>
       </transition>
     </div>
@@ -501,6 +509,22 @@ const resendVerification = async () => {
   text-decoration: underline;
 }
 
+.forgot-password {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.forgot-password a {
+  color: #999;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.forgot-password a:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
+
 .success-message,
 .error-message {
   margin-top: 20px;
@@ -557,8 +581,7 @@ const resendVerification = async () => {
   opacity: 0;
 }
 
-/* Add these to your existing styles */
-
+/* Verification warning */
 .verification-warning {
   background-color: #fff3cd;
   border: 1px solid #ffeeba;

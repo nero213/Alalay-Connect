@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import {
     createSkilledProfile,
     uploadGovID,
@@ -11,8 +11,9 @@ import {
     removeSkillFromProfile,
     getAllSkills,
 } from "@/api/skilledProfiles";
+import { getCities, getBarangays } from "@/utils/locationService";
 
-// Existing refs - KEEPING ALL ORIGINAL LOGIC
+// Existing refs
 const bio = ref("");
 const yearsExperience = ref("");
 const govID = ref(null);
@@ -20,6 +21,11 @@ const certificate = ref(null);
 const profileImage = ref(null);
 const latitude = ref(null);
 const longitude = ref(null);
+
+// Location refs
+const selectedCity = ref("");
+const selectedBarangay = ref("");
+const address = ref("");
 
 // Skills refs
 const availableSkills = ref([]);
@@ -33,7 +39,16 @@ const loading = ref(false);
 const message = ref("");
 const error = ref("");
 
-// Handle file selection - ORIGINAL LOGIC PRESERVED
+// Available cities from JSON
+const cities = getCities();
+
+// Available barangays based on selected city
+const availableBarangays = computed(() => {
+    if (!selectedCity.value) return [];
+    return getBarangays(selectedCity.value);
+});
+
+// Handle file selection
 const handleFile = (event, type) => {
     const file = event.target.files[0];
     if (type === "gov") govID.value = file;
@@ -41,7 +56,7 @@ const handleFile = (event, type) => {
     if (type === "profile") profileImage.value = file;
 };
 
-// Get geolocation - ORIGINAL LOGIC PRESERVED
+// Get geolocation
 const getLocation = () => {
     if (!navigator.geolocation) {
         error.value = "Geolocation is not supported by your browser.";
@@ -55,13 +70,13 @@ const getLocation = () => {
         },
         (err) => {
             console.error("Geolocation error:", err);
-            error.value = "Unable to get your location. Please enable location services.";
+            error.value = "Unable to get your location. Please enable location services or manually select your location.";
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 };
 
-// Toggle skill selection - ORIGINAL LOGIC PRESERVED
+// Toggle skill selection
 const toggleSkill = (skillId) => {
     const index = selectedSkills.value.indexOf(skillId);
     if (index === -1) {
@@ -71,7 +86,7 @@ const toggleSkill = (skillId) => {
     }
 };
 
-// Load all available skills from database - ORIGINAL LOGIC PRESERVED
+// Load all available skills from database
 const loadAllSkills = async () => {
     loadingSkills.value = true;
     try {
@@ -85,7 +100,7 @@ const loadAllSkills = async () => {
     }
 };
 
-// Load my skills on mount - ORIGINAL LOGIC PRESERVED
+// Load my skills on mount
 const loadMySkills = async () => {
     try {
         const skills = await getMySkills();
@@ -95,7 +110,7 @@ const loadMySkills = async () => {
     }
 };
 
-// Remove a skill - ORIGINAL LOGIC PRESERVED
+// Remove a skill
 const handleRemoveSkill = async (skillId) => {
     try {
         await removeSkillFromProfile(skillId);
@@ -107,27 +122,28 @@ const handleRemoveSkill = async (skillId) => {
     }
 };
 
-// Submit professional - ORIGINAL LOGIC PRESERVED EXACTLY
+// Submit professional
 const submitProfessional = async () => {
     error.value = "";
     message.value = "";
 
     if (!bio.value || !yearsExperience.value || !govID.value || !certificate.value || !profileImage.value) {
-        error.value = "Try to fill all the fields in order to proceed";
+        error.value = "Please fill all fields and upload required documents";
         return;
     }
 
     if (!latitude.value || !longitude.value) {
-        error.value = "Waiting for your location… please allow location access.";
+        error.value = "Waiting for your location… please allow location access or enable GPS.";
+        return;
+    }
+
+    if (!selectedCity.value || !selectedBarangay.value) {
+        error.value = "Please select your city/municipality and barangay.";
         return;
     }
 
     if (selectedSkills.value.length === 0) {
         error.value = "Please select at least one skill.";
-        return;
-    }
-    if (!govID.value) {
-        error.value = "please add something in the govID"
         return;
     }
 
@@ -148,19 +164,25 @@ const submitProfessional = async () => {
         // 3️⃣ Add skills
         await addSkillsToProfile(selectedSkills.value);
 
-        // 4️⃣ Send location
+        // 4️⃣ Send location with city and barangay
         await updateSkilledLocation({
             latitude: Number(latitude.value),
             longitude: Number(longitude.value),
-            barangay: "Unknown",
-            city: "Unknown",
+            barangay: selectedBarangay.value,
+            city: selectedCity.value,
         });
 
-        message.value = "Professional profile successfully created!";
+        message.value = "Professional profile successfully created! Your application is pending review.";
 
         // Load the newly added skills
         await loadMySkills();
         showSkillSelector.value = false;
+
+        // Reset form after success
+        setTimeout(() => {
+            // Optional: redirect to dashboard after 3 seconds
+            // router.push('/dashboard');
+        }, 3000);
 
     } catch (err) {
         console.error(err);
@@ -168,6 +190,11 @@ const submitProfessional = async () => {
     } finally {
         loading.value = false;
     }
+};
+
+// Reset location selection when city changes
+const onCityChange = () => {
+    selectedBarangay.value = "";
 };
 
 onMounted(() => {
@@ -184,7 +211,8 @@ onMounted(() => {
             <div class="card-header">
                 <div class="header-icon">
                     <svg viewBox="0 0 24 24" width="48" height="48">
-                        <path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        <path fill="currentColor"
+                            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                     </svg>
                 </div>
                 <h2>Become a Verified Professional</h2>
@@ -195,16 +223,18 @@ onMounted(() => {
             <transition name="fade">
                 <div v-if="message" class="message success">
                     <svg class="message-icon" viewBox="0 0 24 24" width="20" height="20">
-                        <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        <path fill="currentColor"
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                     </svg>
                     {{ message }}
                 </div>
             </transition>
-            
+
             <transition name="fade">
                 <div v-if="error" class="message error">
                     <svg class="message-icon" viewBox="0 0 24 24" width="20" height="20">
-                        <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        <path fill="currentColor"
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
                     </svg>
                     {{ error }}
                 </div>
@@ -219,15 +249,16 @@ onMounted(() => {
                 <div class="skills-list">
                     <div v-for="skill in mySkills" :key="skill.skill_id" class="skill-tag">
                         {{ skill.name }}
-                        <button @click="handleRemoveSkill(skill.skill_id)" class="remove-skill" title="Remove skill">×</button>
+                        <button @click="handleRemoveSkill(skill.skill_id)" class="remove-skill"
+                            title="Remove skill">×</button>
                     </div>
                 </div>
                 <button @click="showSkillSelector = !showSkillSelector" class="toggle-btn">
                     <svg v-if="!showSkillSelector" viewBox="0 0 24 24" width="18" height="18">
-                        <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                     </svg>
                     <svg v-else viewBox="0 0 24 24" width="18" height="18">
-                        <path fill="currentColor" d="M19 13H5v-2h14v2z"/>
+                        <path fill="currentColor" d="M19 13H5v-2h14v2z" />
                     </svg>
                     {{ showSkillSelector ? 'Cancel' : 'Add More Skills' }}
                 </button>
@@ -250,72 +281,100 @@ onMounted(() => {
 
                 <!-- Skills grid -->
                 <div v-else class="skills-grid">
-                    <div 
-                        v-for="skill in availableSkills" 
-                        :key="skill.skill_id" 
-                        @click="toggleSkill(skill.skill_id)"
-                        :class="['skill-card', { 
+                    <div v-for="skill in availableSkills" :key="skill.skill_id" @click="toggleSkill(skill.skill_id)"
+                        :class="['skill-card', {
                             selected: selectedSkills.includes(skill.skill_id),
                             'existing-skill': mySkills.some(s => s.skill_id === skill.skill_id)
-                        }]"
-                    >
+                        }]">
                         {{ skill.name }}
                         <span v-if="selectedSkills.includes(skill.skill_id)" class="check-icon">✓</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Profile Form - ORIGINAL STRUCTURE PRESERVED -->
+            <!-- Profile Form -->
             <form @submit.prevent="submitProfessional" class="professional-form">
                 <!-- Bio -->
                 <div class="form-group">
                     <label>
                         <svg viewBox="0 0 24 24" width="18" height="18">
-                            <path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z"/>
+                            <path fill="currentColor"
+                                d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z" />
                         </svg>
                         Bio
                     </label>
-                    <textarea 
-                        v-model="bio" 
-                        placeholder="Describe your skills and experience..."
-                        rows="4"
-                    ></textarea>
+                    <textarea v-model="bio" placeholder="Describe your skills and experience..." rows="4"></textarea>
                 </div>
 
                 <!-- Years of Experience -->
                 <div class="form-group">
                     <label>
                         <svg viewBox="0 0 24 24" width="18" height="18">
-                            <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/>
+                            <path fill="currentColor"
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
                         </svg>
                         Years of Experience
                     </label>
-                    <input 
-                        type="number" 
-                        v-model="yearsExperience" 
-                        min="0" 
-                        placeholder="0"
-                    />
+                    <input type="number" v-model="yearsExperience" min="0" placeholder="0" />
+                </div>
+
+                <!-- Location Section - NEW DROPDOWNS -->
+                <div class="form-group">
+                    <label>
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor"
+                                d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                        City/Municipality
+                    </label>
+                    <select v-model="selectedCity" @change="onCityChange" class="location-select">
+                        <option value="">Select your city/municipality</option>
+                        <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor"
+                                d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                        Barangay
+                    </label>
+                    <select v-model="selectedBarangay" class="location-select" :disabled="!selectedCity">
+                        <option value="">Select your barangay</option>
+                        <option v-for="barangay in availableBarangays" :key="barangay" :value="barangay">{{ barangay }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Address (Optional) -->
+                <div class="form-group">
+                    <label>
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor"
+                                d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                        Street Address (Optional)
+                    </label>
+                    <input type="text" v-model="address" placeholder="House number, street, etc." />
                 </div>
 
                 <!-- Government ID -->
                 <div class="form-group">
                     <label>
                         <svg viewBox="0 0 24 24" width="18" height="18">
-                            <path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM7 12h4v2H7z"/>
+                            <path fill="currentColor"
+                                d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM7 12h4v2H7z" />
                         </svg>
                         Government ID
                     </label>
                     <div class="file-input-wrapper">
-                        <input 
-                            type="file" 
-                            @change="(e) => handleFile(e, 'gov')" 
-                            accept="image/*,.pdf"
-                            id="gov-input"
-                        />
+                        <input type="file" @change="(e) => handleFile(e, 'gov')" accept="image/*,.pdf" id="gov-input" />
                         <label for="gov-input" class="file-input-label">
                             <svg viewBox="0 0 24 24" width="18" height="18">
-                                <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                                <path fill="currentColor"
+                                    d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
                             </svg>
                             <span>{{ govID ? govID.name : 'Choose file...' }}</span>
                         </label>
@@ -326,20 +385,17 @@ onMounted(() => {
                 <div class="form-group">
                     <label>
                         <svg viewBox="0 0 24 24" width="18" height="18">
-                            <path fill="currentColor" d="M4 6h16v2H4zm2-4h12v2H6zm14 8H4v6h16v-6zM4 20h16v2H4z"/>
+                            <path fill="currentColor" d="M4 6h16v2H4zm2-4h12v2H6zm14 8H4v6h16v-6zM4 20h16v2H4z" />
                         </svg>
                         Certificate
                     </label>
                     <div class="file-input-wrapper">
-                        <input 
-                            type="file" 
-                            @change="(e) => handleFile(e, 'cert')" 
-                            accept="image/*,.pdf"
-                            id="cert-input"
-                        />
+                        <input type="file" @change="(e) => handleFile(e, 'cert')" accept="image/*,.pdf"
+                            id="cert-input" />
                         <label for="cert-input" class="file-input-label">
                             <svg viewBox="0 0 24 24" width="18" height="18">
-                                <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                                <path fill="currentColor"
+                                    d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
                             </svg>
                             <span>{{ certificate ? certificate.name : 'Choose file...' }}</span>
                         </label>
@@ -350,20 +406,18 @@ onMounted(() => {
                 <div class="form-group">
                     <label>
                         <svg viewBox="0 0 24 24" width="18" height="18">
-                            <path fill="currentColor" d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM8 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                            <path fill="currentColor"
+                                d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM8 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
                         </svg>
                         Profile Image
                     </label>
                     <div class="file-input-wrapper">
-                        <input 
-                            type="file" 
-                            @change="(e) => handleFile(e, 'profile')" 
-                            accept="image/*"
-                            id="profile-input"
-                        />
+                        <input type="file" @change="(e) => handleFile(e, 'profile')" accept="image/*"
+                            id="profile-input" />
                         <label for="profile-input" class="file-input-label">
                             <svg viewBox="0 0 24 24" width="18" height="18">
-                                <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                                <path fill="currentColor"
+                                    d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
                             </svg>
                             <span>{{ profileImage ? profileImage.name : 'Choose file...' }}</span>
                         </label>
@@ -373,7 +427,8 @@ onMounted(() => {
                 <!-- Location Status -->
                 <div class="location-status" :class="{ 'location-ready': latitude && longitude }">
                     <svg viewBox="0 0 24 24" width="20" height="20">
-                        <path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        <path fill="currentColor"
+                            d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                     </svg>
                     <span>
                         {{ latitude && longitude ? '📍 Location detected' : '⏳ Detecting your location...' }}
@@ -384,7 +439,7 @@ onMounted(() => {
                 <button type="submit" :disabled="loading" class="submit-btn">
                     <span v-if="loading" class="spinner-small"></span>
                     <svg v-else viewBox="0 0 24 24" width="20" height="20">
-                        <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                     </svg>
                     {{ loading ? "Processing..." : "Submit for Verification" }}
                 </button>
@@ -394,6 +449,33 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Keep all existing styles, add these new styles */
+
+/* Location Select Dropdowns */
+.location-select {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 1rem;
+    background: #fafafa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.location-select:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.location-select:disabled {
+    background: #f5f5f5;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
 /* Container */
 .professional-container {
     min-height: 100vh;
@@ -607,7 +689,7 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Form */
@@ -634,7 +716,8 @@ onMounted(() => {
 }
 
 .form-group textarea,
-.form-group input[type="number"] {
+.form-group input[type="number"],
+.form-group input[type="text"] {
     width: 100%;
     padding: 0.9rem 1rem;
     border: 2px solid #e0e0e0;
@@ -645,7 +728,8 @@ onMounted(() => {
 }
 
 .form-group textarea:focus,
-.form-group input[type="number"]:focus {
+.form-group input[type="number"]:focus,
+.form-group input[type="text"]:focus {
     outline: none;
     border-color: #667eea;
     background: white;
@@ -794,7 +878,7 @@ onMounted(() => {
 .spinner-small {
     width: 20px;
     height: 20px;
-    border: 3px solid rgba(255,255,255,0.3);
+    border: 3px solid rgba(255, 255, 255, 0.3);
     border-top: 3px solid white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
@@ -802,8 +886,13 @@ onMounted(() => {
 
 /* Animations */
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes slideUp {
@@ -811,6 +900,7 @@ onMounted(() => {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -822,6 +912,7 @@ onMounted(() => {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -829,9 +920,12 @@ onMounted(() => {
 }
 
 @keyframes bounce {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-10px);
     }
@@ -852,21 +946,26 @@ onMounted(() => {
     .card-header {
         padding: 2rem 1.5rem;
     }
-    
+
     .card-header h2 {
         font-size: 1.5rem;
     }
-    
+
     .section {
         padding: 1.25rem 1.5rem;
     }
-    
+
     .professional-form {
         padding: 1.5rem;
     }
-    
+
     .skills-grid {
         grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+
+    .location-select {
+        font-size: 0.9rem;
+        padding: 0.8rem;
     }
 }
 </style>
