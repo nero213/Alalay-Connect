@@ -10,7 +10,39 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Generate a random 6-digit verification code
+export const sendPasswordResetEmail = async (email, token, name) => {
+  try {
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Reset Your Password - Alalay Connect",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+          <h2 style="color: #4e73df; text-align: center;">Reset Your Password</h2>
+          <p>Hi ${name},</p>
+          <p>We received a request to reset your password. Click the button below to create a new password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+          </div>
+          <p>If you didn't request this, please ignore this email. This link will expire in 1 hour.</p>
+          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
+          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    throw error;
+  }
+};
+
+// Keep your existing functions
 export const generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
