@@ -18,7 +18,8 @@ import notificationRoutes from "./routes/notification.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import reportRoutes from "./routes/report.routes.js";
-
+import residentRoutes from "./routes/resident.routes.js";
+import helpRoutes from "./routes/help.routes.js";
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
 
@@ -65,6 +66,8 @@ const limiter = rateLimit({
 });
 
 // Routes
+app.use("/api/help", helpRoutes);
+app.use("/api/users/resident", residentRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/admin", adminRoutes);

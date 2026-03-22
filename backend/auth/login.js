@@ -13,6 +13,8 @@ export const userLogin = async (req, res) => {
         .json({ message: "Email and password are required" });
     }
 
+    // console.log("Login attempt for email:", email);
+
     const [user] = await pool.query(
       "SELECT * FROM users WHERE email = ? LIMIT 1",
       [email],
@@ -24,6 +26,14 @@ export const userLogin = async (req, res) => {
     }
 
     const found = user[0];
+    // console.log(
+    //   "User found:",
+    //   found.email,
+    //   "Role:",
+    //   found.role,
+    //   "Status:",
+    //   found.status,
+    // );
 
     // Check if user is suspended
     if (found.status === "suspended") {
@@ -45,6 +55,7 @@ export const userLogin = async (req, res) => {
 
     // Verify password
     const isMatch = await bcrypt.compare(password, found.password);
+    // console.log("Password match:", isMatch);
 
     if (!isMatch) {
       console.log("Invalid password for:", email);
@@ -80,14 +91,6 @@ export const userLogin = async (req, res) => {
   } catch (err) {
     console.error("Login error details:", err);
     console.error("Error stack:", err.stack);
-
-    // Handle rate limit error
-    if (err.name === "RateLimitError" || err.message === "Too many requests") {
-      return res.status(429).json({
-        message: "Too many login attempts. Please try again later.",
-        retryAfter: Math.ceil(err.retryAfter || 900), // 15 minutes in seconds
-      });
-    }
 
     // Send proper error response
     return res.status(500).json({

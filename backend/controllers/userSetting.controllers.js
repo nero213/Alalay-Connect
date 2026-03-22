@@ -1,15 +1,16 @@
+// backend/controllers/userSetting.controllers.js
 import { pool } from "../config/db.js";
 import bcrypt from "bcrypt";
 
-// Get user profile with settings
+// Get user profile with settings - UPDATED with bio and location
 export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Get user details
+    // Get user details - INCLUDING bio, barangay, city
     const [users] = await pool.query(
       `SELECT user_id, uuid, email, firstName, lastName, phone, role, status, 
-              created_at, profile_image
+              created_at, profile_image, bio, barangay, city
        FROM users WHERE user_id = ?`,
       [userId],
     );
@@ -52,32 +53,45 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
-// Update user profile (basic info)
+// Update user profile (basic info) - UPDATED with bio and location
 export const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { firstName, lastName, phone } = req.body;
+    const { firstName, lastName, phone, bio, barangay, city } = req.body;
 
-    const [rows] = await pool.query(
-      "Select user_id from users WHERE phone = ? and user_id != ?",
-      [phone, userId],
-    );
+    // Check if phone number is taken by another user (only if phone is provided)
+    if (phone) {
+      const [rows] = await pool.query(
+        "SELECT user_id FROM users WHERE phone = ? AND user_id != ?",
+        [phone, userId],
+      );
 
-    if (rows.length > 0) {
-      return res.status(400).json({ message: "Phone number already taken" });
+      if (rows.length > 0) {
+        return res.status(400).json({ message: "Phone number already taken" });
+      }
     }
 
-    // Update user info
+    // Update user info with bio and location
     await pool.query(
       `UPDATE users 
-       SET firstName = ?, lastName = ?, phone = ?
+       SET firstName = ?, lastName = ?, phone = ?, bio = ?, barangay = ?, city = ?
        WHERE user_id = ?`,
-      [firstName, lastName, phone, userId],
+      [
+        firstName,
+        lastName,
+        phone || null,
+        bio || null,
+        barangay || null,
+        city || null,
+        userId,
+      ],
     );
 
     // Fetch updated user
     const [users] = await pool.query(
-      "SELECT user_id, uuid, email, firstName, lastName, phone, role, status FROM users WHERE user_id = ?",
+      `SELECT user_id, uuid, email, firstName, lastName, phone, role, status, 
+              created_at, profile_image, bio, barangay, city
+       FROM users WHERE user_id = ?`,
       [userId],
     );
 
@@ -91,7 +105,7 @@ export const updateUserProfile = async (req, res) => {
   }
 };
 
-// Change password
+// Change password - KEEP AS IS
 export const changePassword = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -127,7 +141,7 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// Update notification settings
+// Update notification settings - KEEP AS IS
 export const updateNotificationSettings = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -194,7 +208,7 @@ export const updateNotificationSettings = async (req, res) => {
   }
 };
 
-// Upload profile image
+// Upload profile image - KEEP AS IS
 export const uploadProfileImage = async (req, res) => {
   try {
     if (!req.file) {
@@ -219,7 +233,7 @@ export const uploadProfileImage = async (req, res) => {
   }
 };
 
-// Request password reset
+// Request password reset - KEEP AS IS
 export const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
@@ -249,10 +263,9 @@ export const requestPasswordReset = async (req, res) => {
     );
 
     // TODO: Send email with reset link
-    // For now, just return the token (in production, send via email)
     res.json({
       message: "Password reset email sent",
-      resetToken: resetToken, // Remove this in production!
+      resetToken: resetToken, // Remove in production!
     });
   } catch (error) {
     console.error("Error requesting password reset:", error);
@@ -260,7 +273,7 @@ export const requestPasswordReset = async (req, res) => {
   }
 };
 
-// Reset password with token
+// Reset password with token - KEEP AS IS
 export const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -300,7 +313,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// Delete account
+// Delete account - KEEP AS IS
 export const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;

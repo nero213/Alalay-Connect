@@ -1,3 +1,4 @@
+// backend/controllers/booking.controller.js
 import { pool } from "../config/db.js";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -196,6 +197,8 @@ export const getClientBookings = async (req, res) => {
       SELECT b.*, 
              sp.firstName as skilled_firstName, sp.lastName as skilled_lastName,
              sp.profile_image as skilled_image,
+             sp.phone as skilled_phone,
+             sp.email as skilled_email,
              sp.skilled_id,
              (SELECT GROUP_CONCAT(s.name SEPARATOR ', ')
               FROM skilled_profile_skills sps
@@ -262,7 +265,8 @@ export const getSkilledBookings = async (req, res) => {
       SELECT b.*, 
              u.firstName as client_firstName, u.lastName as client_lastName,
              u.phone as client_phone,
-             u.email as client_email
+             u.email as client_email,
+             u.profile_image as client_image
       FROM bookings b
       JOIN users u ON u.user_id = b.client_id
       WHERE b.skilled_id = ?
@@ -302,13 +306,12 @@ export const getSkilledBookings = async (req, res) => {
 };
 
 // Get booking details by ID
+// backend/controllers/booking.controller.js - Update getBookingById
+// backend/controllers/booking.controller.js - Update getBookingById
 export const getBookingById = async (req, res) => {
   try {
     const { id } = req.params;
     const user_id = req.user.id;
-
-    console.log("Fetching booking with ID:", id);
-    console.log("User ID:", user_id);
 
     const [bookings] = await pool.query(
       `SELECT 
@@ -317,13 +320,21 @@ export const getBookingById = async (req, res) => {
         u.lastName as client_lastName,
         u.phone as client_phone, 
         u.email as client_email,
+        u.profile_image as client_image,
+        u.role as client_role,
+        (SELECT skilled_id FROM skilled_profiles WHERE user_id = u.user_id) as client_skilled_id,
+        (SELECT profile_image FROM skilled_profiles WHERE user_id = u.user_id) as client_skilled_image, 
         sp.firstName as skilled_firstName, 
         sp.lastName as skilled_lastName,
         sp.profile_image as skilled_image,
-        u.phone as skilled_phone,
+        sp.skilled_id,
         sp.user_id as skilled_user_id,
+        sp.phone as skilled_phone,
+        sp.email as skilled_email,
         (SELECT AVG(rating) FROM ratings WHERE skilled_id = sp.skilled_id) as skilled_rating,
         (SELECT COUNT(*) FROM ratings WHERE skilled_id = sp.skilled_id) as skilled_reviews,
+        (SELECT AVG(rating) FROM ratings WHERE client_id = u.user_id) as client_rating,
+        (SELECT COUNT(*) FROM ratings WHERE client_id = u.user_id) as client_reviews,
         (SELECT GROUP_CONCAT(s.name SEPARATOR ', ')
          FROM skilled_profile_skills sps
          JOIN skills s ON s.skill_id = sps.skill_id
@@ -421,7 +432,6 @@ export const updateBookingStatus = async (req, res) => {
           bookingData,
         );
         break;
-      // 'no_show' doesn't have a specific notification yet, could add later
     }
 
     res.json({

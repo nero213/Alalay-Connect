@@ -20,18 +20,22 @@ export const registerValidators = [
     .customSanitizer((value) => {
       // +639XXXXXXXXX → 09XXXXXXXXX
       if (value.startsWith("+639")) {
-        return "0" + value.slice(3); 
+        return "0" + value.slice(3);
       }
 
-      
       if (value.startsWith("639")) {
-        return "0" + value.slice(2); 
+        return "0" + value.slice(2);
       }
 
       // already starting with 09
       return value;
     }),
   body("role").optional().isIn(["resident", "skilled", "admin"]),
+  body("city").optional().isString().withMessage("City must be a string"),
+  body("barangay")
+    .optional()
+    .isString()
+    .withMessage("Barangay must be a string"),
 ];
 
 export const loginValidators = [
