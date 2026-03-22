@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import noSearchNavbar from '@/components/noSearchNavbar.vue'
 import {
@@ -28,6 +28,7 @@ const searchQuery = ref('')
 const fileInput = ref(null)
 const uploadingFile = ref(false)
 const previewFile = ref(null)
+const previewFileUrl = ref(null) // Add this for storing object URL
 
 // Filter conversations by search
 const filteredConversations = computed(() => {
@@ -190,10 +191,16 @@ const markAsRead = async () => {
 
 // Clear file preview
 const clearFilePreview = () => {
+    // Revoke object URL to prevent memory leaks
+    if (previewFileUrl.value) {
+        URL.revokeObjectURL(previewFileUrl.value)
+        previewFileUrl.value = null
+    }
     previewFile.value = null
     if (fileInput.value) {
         fileInput.value.value = ''
     }
+    uploadingFile.value = false
 }
 
 // Send message with file
@@ -281,14 +288,20 @@ const handleFileSelect = (event) => {
         return
     }
 
+    // Clear previous preview URL if exists
+    if (previewFileUrl.value) {
+        URL.revokeObjectURL(previewFileUrl.value)
+    }
+
     previewFile.value = file
+    // Create object URL for preview
+    previewFileUrl.value = URL.createObjectURL(file)
     uploadingFile.value = true
 }
 
 // Remove selected file
 const removeSelectedFile = () => {
     clearFilePreview()
-    uploadingFile.value = false
 }
 
 // Add new line on Shift+Enter
@@ -344,6 +357,15 @@ const handleResize = () => {
     isMobile.value = window.innerWidth < 768
 }
 
+// Clean up object URL on component unmount
+onUnmounted(() => {
+    if (previewFileUrl.value) {
+        URL.revokeObjectURL(previewFileUrl.value)
+    }
+    if (pollingInterval) clearInterval(pollingInterval)
+    window.removeEventListener('resize', handleResize)
+})
+
 // Poll for new messages
 let pollingInterval = null
 
@@ -384,11 +406,6 @@ onMounted(async () => {
 
     window.addEventListener('resize', handleResize)
     startPolling()
-})
-
-onUnmounted(() => {
-    if (pollingInterval) clearInterval(pollingInterval)
-    window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -586,9 +603,9 @@ onUnmounted(() => {
                             accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,audio/*,video/*" />
 
                         <!-- File Preview -->
-                        <div v-if="previewFile" class="file-preview">
+                        <div v-if="previewFile && previewFileUrl" class="file-preview">
                             <div v-if="isImageFile(previewFile.type, previewFile.name)" class="image-preview">
-                                <img :src="URL.createObjectURL(previewFile)" alt="Preview" class="preview-thumbnail">
+                                <img :src="previewFileUrl" alt="Preview" class="preview-thumbnail">
                             </div>
                             <div v-else class="file-preview-info">
                                 <span class="preview-icon">{{ getFileIcon(previewFile.type, previewFile.name) }}</span>
@@ -639,6 +656,234 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* Keep all existing styles and add these new ones */
+
+/* Image attachment styles */
+.image-attachment {
+    margin-bottom: 0.5rem;
+}
+
+.image-link {
+    display: block;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.message-image {
+    max-width: 250px;
+    max-height: 200px;
+    border-radius: 12px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.message-image:hover {
+    transform: scale(1.02);
+}
+
+/* File attachment styles */
+.file-attachment {
+    margin-bottom: 0.5rem;
+}
+
+.file-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.message-sent .file-link {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.message-received .file-link {
+    background: #f1f5f9;
+}
+
+.file-link:hover {
+    transform: translateY(-2px);
+}
+
+.file-icon {
+    font-size: 1.5rem;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.file-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: inherit;
+    word-break: break-word;
+}
+
+.file-size {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+.message-sent .file-name,
+.message-sent .file-size {
+    color: white;
+}
+
+.message-received .file-name,
+.message-received .file-size {
+    color: #1e293b;
+}
+
+/* File preview before sending */
+.file-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: #f1f5f9;
+    border-radius: 12px;
+    margin-right: 0.5rem;
+    max-width: 200px;
+}
+
+.image-preview {
+    flex-shrink: 0;
+}
+
+.preview-thumbnail {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.file-preview-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.preview-icon {
+    font-size: 1.5rem;
+}
+
+.preview-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.preview-name {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.preview-size {
+    display: block;
+    font-size: 0.7rem;
+    color: #64748b;
+}
+
+.remove-preview-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    color: #ef4444;
+}
+
+.remove-preview-btn:hover {
+    background: #fee2e2;
+    transform: scale(1.1);
+}
+
+/* Attach button */
+.attach-btn {
+    width: 42px;
+    height: 42px;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #4f46e5;
+    flex-shrink: 0;
+}
+
+.attach-btn:hover:not(:disabled) {
+    background: #e2e8f0;
+    transform: scale(1.05);
+}
+
+.attach-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.hidden-file-input {
+    display: none;
+}
+
+/* Search Bar Styles */
+.search-bar {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-wrapper svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    stroke: #94a3b8;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.6rem 0.8rem 0.6rem 2.5rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #4f46e5;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
 /* Image attachment styles */
 .image-attachment {
     margin-bottom: 0.5rem;

@@ -1,7 +1,14 @@
 <template>
     <div class="modal-overlay" @click="$emit('close')">
         <div class="modal-content" @click.stop>
-            <div class="modal-header">
+            <div class="modal-header" :class="reportType === 'User' ? 'user-report' : 'profile-report'">
+                <div class="modal-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12 8V12M12 16H12.01M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                            stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                </div>
                 <h3>Report {{ reportType }}</h3>
                 <button @click="$emit('close')" class="close-btn">&times;</button>
             </div>
@@ -9,6 +16,8 @@
             <div class="modal-body">
                 <div class="report-info">
                     <p>Why are you reporting this {{ reportType.toLowerCase() }}?</p>
+                    <p class="report-note">Your report will be reviewed by our team. False reports may result in account
+                        restrictions.</p>
                 </div>
 
                 <div class="reason-buttons">
@@ -48,7 +57,7 @@ const props = defineProps({
     },
     reportedUserId: {
         type: Number,
-        default: null
+        required: true
     },
     reportedSkillId: {
         type: Number,
@@ -72,6 +81,9 @@ const reasons = [
     { value: 'harassment', label: 'Harassment or Bullying' },
     { value: 'spam', label: 'Spam or Advertising' },
     { value: 'offensive', label: 'Offensive Language' },
+    { value: 'uncooperative', label: 'Uncooperative / Difficult' },
+    { value: 'no_show', label: 'No Show / Cancelled Last Minute' },
+    { value: 'dispute', label: 'Payment/Service Dispute' },
     { value: 'other', label: 'Other' }
 ]
 
@@ -87,10 +99,10 @@ const submitReport = async () => {
         const reportData = {
             type: props.reportType.toLowerCase(),
             reason: selectedReason.value,
-            description: description.value
+            description: description.value,
+            reported_user_id: props.reportedUserId
         }
 
-        if (props.reportedUserId) reportData.reported_user_id = props.reportedUserId
         if (props.reportedSkillId) reportData.reported_skill_id = props.reportedSkillId
         if (props.reportedRatingId) reportData.reported_rating_id = props.reportedRatingId
         if (props.reportedMessageId) reportData.reported_message_id = props.reportedMessageId
@@ -133,16 +145,40 @@ const submitReport = async () => {
 
 .modal-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 1rem;
     padding: 1.5rem;
     border-bottom: 1px solid #eee;
+    position: relative;
+}
+
+.modal-header.user-report {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.modal-header.profile-report {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+}
+
+.modal-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-icon svg {
+    stroke: white;
 }
 
 .modal-header h3 {
     margin: 0;
     color: #1e293b;
     font-size: 1.2rem;
+    flex: 1;
 }
 
 .close-btn {
@@ -162,7 +198,7 @@ const submitReport = async () => {
 }
 
 .close-btn:hover {
-    background: #f1f5f9;
+    background: rgba(0, 0, 0, 0.1);
 }
 
 .modal-body {
@@ -171,14 +207,20 @@ const submitReport = async () => {
 
 .report-info p {
     color: #475569;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.report-note {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-style: italic;
 }
 
 .reason-buttons {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
-    margin-bottom: 1.5rem;
+    margin: 1rem 0;
 }
 
 .reason-btn {

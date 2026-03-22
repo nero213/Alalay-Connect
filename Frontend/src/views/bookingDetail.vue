@@ -201,7 +201,7 @@ const leaveReview = () => {
 const contactProfessional = () => {
     if (!booking.value) return
 
-    router.push(`/messages/${booking.value.skilled_id}`)
+    router.push(`/messages`)
 }
 
 onMounted(() => {
