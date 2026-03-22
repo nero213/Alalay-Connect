@@ -1,291 +1,3 @@
-<script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import noSearchNavbar from '@/components/noSearchNavbar.vue'
-import {
-    getUserProfile,
-    updateUserProfile,
-    changePassword,
-    updateNotificationSettings,
-    uploadUserProfileImage,
-    deleteAccount
-} from '@/api/userService'
-import { getFavorites, removeFromFavorites } from '@/api/favoritesService'
-
-const route = useRoute()
-const router = useRouter()
-const loading = ref(true)
-const user = ref(null)
-const settings = ref({})
-const favorites = ref([])
-const activeTab = ref('profile')
-const editMode = ref(false)
-const showDeleteConfirm = ref(false)
-const deletePassword = ref('')
-const fileInput = ref(null)
-
-// Stats
-const stats = ref({
-    bookings: 0,
-    reviews: 0,
-    favorites: 0
-})
-
-// Edit form
-const editForm = reactive({
-    firstName: '',
-    lastName: '',
-    phone: ''
-})
-
-// Password form
-const passwordForm = reactive({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-})
-
-// Profile image URL
-const profileImageUrl = computed(() => {
-    if (!user.value?.profile_image) return '/default-avatar.png'
-    let imagePath = user.value.profile_image.replace(/\\/g, '/')
-    if (!imagePath.startsWith('/uploads')) {
-        imagePath = `/uploads/${imagePath.split('/').pop()}`
-    }
-    return `http://localhost:3000${imagePath}`
-})
-
-// Password strength
-const passwordStrength = computed(() => {
-    const pwd = passwordForm.newPassword
-    if (!pwd) return 0
-    let strength = 0
-    if (pwd.length >= 8) strength += 25
-    if (/[A-Z]/.test(pwd)) strength += 25
-    if (/[0-9]/.test(pwd)) strength += 25
-    if (/[^A-Za-z0-9]/.test(pwd)) strength += 25
-    return strength
-})
-
-const passwordStrengthClass = computed(() => {
-    if (passwordStrength.value < 50) return 'weak'
-    if (passwordStrength.value < 75) return 'medium'
-    return 'strong'
-})
-
-const passwordStrengthText = computed(() => {
-    if (passwordStrength.value < 50) return 'Weak'
-    if (passwordStrength.value < 75) return 'Medium'
-    return 'Strong'
-})
-
-const passwordMismatch = computed(() => {
-    return passwordForm.newPassword && passwordForm.confirmPassword &&
-        passwordForm.newPassword !== passwordForm.confirmPassword
-})
-
-// Load user data
-const loadUserData = async () => {
-    try {
-        loading.value = true
-        const data = await getUserProfile()
-        user.value = data.user
-        settings.value = data.settings
-
-        // Set edit form values
-        editForm.firstName = data.user.firstName
-        editForm.lastName = data.user.lastName
-        editForm.phone = data.user.phone || ''
-
-        // Load favorites
-        await loadFavorites()
-
-        // Load stats
-        await loadStats()
-    } catch (error) {
-        console.error('Error loading profile:', error)
-    } finally {
-        loading.value = false
-    }
-}
-
-// Load favorites
-const loadFavorites = async () => {
-    try {
-        const response = await getFavorites()
-        favorites.value = response.favorites
-        stats.value.favorites = response.favorites.length
-    } catch (error) {
-        console.error('Error loading favorites:', error)
-    }
-}
-
-// Load stats (implement when endpoints are ready)
-const loadStats = async () => {
-    try {
-        // TODO: Add endpoints for bookings count and reviews count
-        // For now, keep as 0
-    } catch (error) {
-        console.error('Error loading stats:', error)
-    }
-}
-
-// Profile image upload
-const triggerImageUpload = () => {
-    fileInput.value.click()
-}
-
-const handleImageUpload = async (event) => {
-    const file = event.target.files[0]
-    if (!file) return
-
-    try {
-        const response = await uploadUserProfileImage(file)
-        user.value.profile_image = response.imageUrl
-        alert('Profile image updated successfully!')
-    } catch (error) {
-        console.error('Error uploading image:', error)
-        alert('Failed to upload image')
-    }
-}
-
-// Profile editing
-const startEdit = () => {
-    editMode.value = true
-}
-
-const cancelEdit = () => {
-    editMode.value = false
-    editForm.firstName = user.value.firstName
-    editForm.lastName = user.value.lastName
-    editForm.phone = user.value.phone || ''
-}
-
-const saveProfile = async () => {
-    try {
-        const response = await updateUserProfile({
-            firstName: editForm.firstName,
-            lastName: editForm.lastName,
-            phone: editForm.phone
-        })
-        user.value = response.user
-        editMode.value = false
-        alert('Profile updated successfully!')
-    } catch (error) {
-        console.error('Error saving profile:', error)
-        alert('Failed to update profile')
-    }
-}
-
-// Change password
-const changeUserPassword = async () => {
-    if (passwordMismatch.value) return
-
-    try {
-        await changePassword({
-            currentPassword: passwordForm.currentPassword,
-            newPassword: passwordForm.newPassword
-        })
-
-        // Clear form
-        passwordForm.currentPassword = ''
-        passwordForm.newPassword = ''
-        passwordForm.confirmPassword = ''
-
-        alert('Password changed successfully')
-    } catch (error) {
-        alert(error.response?.data?.message || 'Failed to change password')
-    }
-}
-
-// Save notification settings
-const saveSettings = async () => {
-    try {
-        const response = await updateNotificationSettings(settings.value)
-        settings.value = response.settings
-        alert('Settings saved successfully')
-    } catch (error) {
-        console.error('Error saving settings:', error)
-    }
-}
-
-// Delete account
-const confirmDelete = async () => {
-    try {
-        await deleteAccount(deletePassword.value)
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        router.push('/login')
-    } catch (error) {
-        alert(error.response?.data?.message || 'Failed to delete account')
-    }
-}
-
-// Remove favorite
-const removeFavorite = async (skilledId) => {
-    if (!confirm('Remove this professional from your favorites?')) return
-
-    try {
-        await removeFromFavorites(skilledId)
-        await loadFavorites()
-        alert('Removed from favorites')
-    } catch (error) {
-        console.error('Error removing favorite:', error)
-        alert('Failed to remove from favorites')
-    }
-}
-
-// Format date
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    })
-}
-
-// View profile
-const viewProfile = (skilledId) => {
-    router.push(`/skilled-profile/${skilledId}`)
-}
-
-// Book now
-const bookNow = (skilledId) => {
-    router.push(`/booking/${skilledId}`)
-}
-
-// Get rating stars
-const getRatingStars = (rating) => {
-    const fullStars = Math.floor(rating || 0)
-    return '★'.repeat(fullStars) + '☆'.repeat(5 - fullStars)
-}
-
-// Get worker image
-const getWorkerImage = (imagePath) => {
-    if (!imagePath) return '/default-avatar.png'
-    let formattedPath = imagePath.replace(/\\/g, '/')
-    if (!formattedPath.startsWith('/uploads')) {
-        formattedPath = `/uploads/${formattedPath.split('/').pop()}`
-    }
-    return `http://localhost:3000${formattedPath}`
-}
-
-onMounted(() => {
-    loadUserData()
-
-    // Check for tab parameter in URL
-    const tabParam = route.query.tab
-    if (tabParam === 'security') {
-        activeTab.value = 'security'
-    } else if (tabParam === 'notifications') {
-        activeTab.value = 'notifications'
-    } else if (tabParam === 'favorites') {
-        activeTab.value = 'favorites'
-    }
-})
-</script>
-
 <template>
     <div class="profile-page">
         <noSearchNavbar />
@@ -365,6 +77,31 @@ onMounted(() => {
                             <label>Phone Number</label>
                             <input type="tel" v-model="editForm.phone" class="form-input">
                         </div>
+                        <div class="form-group">
+                            <label>Bio</label>
+                            <textarea v-model="editForm.bio" placeholder="Tell others about yourself..." rows="4"
+                                class="form-textarea"></textarea>
+                        </div>
+
+                        <!-- Location Dropdowns -->
+                        <div class="form-group">
+                            <label>City/Municipality</label>
+                            <select v-model="editForm.city" class="location-select" @change="onCityChange">
+                                <option value="">Select your city/municipality</option>
+                                <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Barangay</label>
+                            <select v-model="editForm.barangay" class="location-select" :disabled="!editForm.city">
+                                <option value="">Select your barangay</option>
+                                <option v-for="barangay in availableBarangays" :key="barangay" :value="barangay">
+                                    {{ barangay }}
+                                </option>
+                            </select>
+                        </div>
+
                         <div class="form-actions">
                             <button @click="saveProfile" class="btn-save">Save Changes</button>
                             <button @click="cancelEdit" class="btn-cancel">Cancel</button>
@@ -387,6 +124,18 @@ onMounted(() => {
                         <div class="info-row">
                             <span class="info-label">Phone</span>
                             <span class="info-value">{{ user?.phone || 'Not provided' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Bio</span>
+                            <span class="info-value bio-text">{{ user?.bio || 'No bio added yet.' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">City/Municipality</span>
+                            <span class="info-value">{{ user?.city || 'Not set' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Barangay</span>
+                            <span class="info-value">{{ user?.barangay || 'Not set' }}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Member Since</span>
@@ -549,8 +298,380 @@ onMounted(() => {
     </div>
 </template>
 
+<script setup>
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import noSearchNavbar from '@/components/noSearchNavbar.vue'
+import {
+    getUserProfile,
+    updateUserProfile,
+    changePassword,
+    updateNotificationSettings,
+    uploadUserProfileImage,
+    deleteAccount
+} from '@/api/userService'
+import { getFavorites, removeFromFavorites } from '@/api/favoritesService'
+import { getCities, getBarangays } from '@/utils/locationService'
+
+const route = useRoute()
+const router = useRouter()
+const loading = ref(true)
+const user = ref(null)
+const settings = ref({})
+const favorites = ref([])
+const activeTab = ref('profile')
+const editMode = ref(false)
+const showDeleteConfirm = ref(false)
+const deletePassword = ref('')
+const fileInput = ref(null)
+
+// Stats
+const stats = ref({
+    bookings: 0,
+    reviews: 0,
+    favorites: 0
+})
+
+// Available cities from location service
+const cities = getCities()
+
+// Available barangays based on selected city
+const availableBarangays = computed(() => {
+    if (!editForm.city) return []
+    return getBarangays(editForm.city)
+})
+
+// Edit form
+const editForm = reactive({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    bio: '',
+    barangay: '',
+    city: ''
+})
+
+// Password form
+const passwordForm = reactive({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+})
+
+// Profile image URL
+const profileImageUrl = computed(() => {
+    if (!user.value?.profile_image) return '/default-avatar.png'
+    let imagePath = user.value.profile_image.replace(/\\/g, '/')
+    if (!imagePath.startsWith('/uploads')) {
+        imagePath = `/uploads/${imagePath.split('/').pop()}`
+    }
+    return `http://localhost:3000${imagePath}`
+})
+
+// Password strength
+const passwordStrength = computed(() => {
+    const pwd = passwordForm.newPassword
+    if (!pwd) return 0
+    let strength = 0
+    if (pwd.length >= 8) strength += 25
+    if (/[A-Z]/.test(pwd)) strength += 25
+    if (/[0-9]/.test(pwd)) strength += 25
+    if (/[^A-Za-z0-9]/.test(pwd)) strength += 25
+    return strength
+})
+
+const passwordStrengthClass = computed(() => {
+    if (passwordStrength.value < 50) return 'weak'
+    if (passwordStrength.value < 75) return 'medium'
+    return 'strong'
+})
+
+const passwordStrengthText = computed(() => {
+    if (passwordStrength.value < 50) return 'Weak'
+    if (passwordStrength.value < 75) return 'Medium'
+    return 'Strong'
+})
+
+const passwordMismatch = computed(() => {
+    return passwordForm.newPassword && passwordForm.confirmPassword &&
+        passwordForm.newPassword !== passwordForm.confirmPassword
+})
+
+// Reset location selection when city changes
+const onCityChange = () => {
+    editForm.barangay = ''
+}
+
+// Load user data
+const loadUserData = async () => {
+    try {
+        loading.value = true
+        const data = await getUserProfile()
+        user.value = data.user
+        settings.value = data.settings
+
+        // Set edit form values
+        editForm.firstName = data.user.firstName
+        editForm.lastName = data.user.lastName
+        editForm.phone = data.user.phone || ''
+        editForm.bio = data.user.bio || ''
+        editForm.barangay = data.user.barangay || ''
+        editForm.city = data.user.city || ''
+
+        // Load favorites
+        await loadFavorites()
+
+        // Load stats
+        await loadStats()
+    } catch (error) {
+        console.error('Error loading profile:', error)
+    } finally {
+        loading.value = false
+    }
+}
+
+// Load favorites
+const loadFavorites = async () => {
+    try {
+        const response = await getFavorites()
+        favorites.value = response.favorites
+        stats.value.favorites = response.favorites.length
+    } catch (error) {
+        console.error('Error loading favorites:', error)
+    }
+}
+
+// Load stats (implement when endpoints are ready)
+const loadStats = async () => {
+    try {
+        // TODO: Add endpoints for bookings count and reviews count
+        // For now, keep as 0
+    } catch (error) {
+        console.error('Error loading stats:', error)
+    }
+}
+
+// Profile image upload
+const triggerImageUpload = () => {
+    fileInput.value.click()
+}
+
+const handleImageUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    try {
+        const response = await uploadUserProfileImage(file)
+        user.value.profile_image = response.imageUrl
+        alert('Profile image updated successfully!')
+    } catch (error) {
+        console.error('Error uploading image:', error)
+        alert('Failed to upload image')
+    }
+}
+
+// Profile editing
+const startEdit = () => {
+    editMode.value = true
+}
+
+const cancelEdit = () => {
+    editMode.value = false
+    editForm.firstName = user.value.firstName
+    editForm.lastName = user.value.lastName
+    editForm.phone = user.value.phone || ''
+    editForm.bio = user.value.bio || ''
+    editForm.barangay = user.value.barangay || ''
+    editForm.city = user.value.city || ''
+}
+
+const saveProfile = async () => {
+    try {
+        const response = await updateUserProfile({
+            firstName: editForm.firstName,
+            lastName: editForm.lastName,
+            phone: editForm.phone,
+            bio: editForm.bio,
+            barangay: editForm.barangay,
+            city: editForm.city
+        })
+        user.value = response.user
+        editMode.value = false
+        alert('Profile updated successfully!')
+    } catch (error) {
+        console.error('Error saving profile:', error)
+        alert(error.response?.data?.message || 'Failed to update profile')
+    }
+}
+
+// Change password
+const changeUserPassword = async () => {
+    if (passwordMismatch.value) return
+
+    try {
+        await changePassword({
+            currentPassword: passwordForm.currentPassword,
+            newPassword: passwordForm.newPassword
+        })
+
+        // Clear form
+        passwordForm.currentPassword = ''
+        passwordForm.newPassword = ''
+        passwordForm.confirmPassword = ''
+
+        alert('Password changed successfully')
+    } catch (error) {
+        alert(error.response?.data?.message || 'Failed to change password')
+    }
+}
+
+// Save notification settings
+const saveSettings = async () => {
+    try {
+        const response = await updateNotificationSettings(settings.value)
+        settings.value = response.settings
+        alert('Settings saved successfully')
+    } catch (error) {
+        console.error('Error saving settings:', error)
+    }
+}
+
+// Delete account
+const confirmDelete = async () => {
+    try {
+        await deleteAccount(deletePassword.value)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        router.push('/login')
+    } catch (error) {
+        alert(error.response?.data?.message || 'Failed to delete account')
+    }
+}
+
+// Remove favorite
+const removeFavorite = async (skilledId) => {
+    if (!confirm('Remove this professional from your favorites?')) return
+
+    try {
+        await removeFromFavorites(skilledId)
+        await loadFavorites()
+        alert('Removed from favorites')
+    } catch (error) {
+        console.error('Error removing favorite:', error)
+        alert('Failed to remove from favorites')
+    }
+}
+
+// Format date
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    })
+}
+
+// View profile
+const viewProfile = (skilledId) => {
+    router.push(`/skilled-profile/${skilledId}`)
+}
+
+// Book now
+const bookNow = (skilledId) => {
+    router.push(`/booking/${skilledId}`)
+}
+
+// Get rating stars
+const getRatingStars = (rating) => {
+    const fullStars = Math.floor(rating || 0)
+    return '★'.repeat(fullStars) + '☆'.repeat(5 - fullStars)
+}
+
+// Get worker image
+const getWorkerImage = (imagePath) => {
+    if (!imagePath) return '/default-avatar.png'
+    let formattedPath = imagePath.replace(/\\/g, '/')
+    if (!formattedPath.startsWith('/uploads')) {
+        formattedPath = `/uploads/${formattedPath.split('/').pop()}`
+    }
+    return `http://localhost:3000${formattedPath}`
+}
+
+onMounted(() => {
+    loadUserData()
+
+    // Check for tab parameter in URL
+    const tabParam = route.query.tab
+    if (tabParam === 'security') {
+        activeTab.value = 'security'
+    } else if (tabParam === 'notifications') {
+        activeTab.value = 'notifications'
+    } else if (tabParam === 'favorites') {
+        activeTab.value = 'favorites'
+    }
+})
+</script>
+
 <style scoped>
-/* Keep all your existing styles */
+/* Add these new styles for location dropdowns */
+.location-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 1rem;
+    background: white;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.location-select:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.location-select:disabled {
+    background: #f8fafc;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-group.half {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 1rem;
+    resize: vertical;
+    font-family: inherit;
+    transition: all 0.3s;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.bio-text {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+/* Keep all your existing styles below */
 .profile-page {
     min-height: 100vh;
     background: #f8fafc;
@@ -745,7 +866,7 @@ onMounted(() => {
 }
 
 .info-label {
-    width: 120px;
+    width: 140px;
     color: #64748b;
 }
 
@@ -1213,6 +1334,11 @@ input:checked+.slider:before {
 
     .form-actions {
         flex-direction: column;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 1rem;
     }
 
     .setting-item {

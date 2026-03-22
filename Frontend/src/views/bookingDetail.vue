@@ -1,214 +1,4 @@
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import noSearchNavbar from '@/components/noSearchNavbar.vue'
-import { getBookingById, cancelBooking as cancelBookingApi, rescheduleBooking, getAvailableSlots } from '@/api/bookingService'
-
-const route = useRoute()
-const router = useRouter()
-
-const loading = ref(true)
-const error = ref('')
-const booking = ref(null)
-const cancelling = ref(false)
-
-// Reschedule modal
-const showRescheduleModal = ref(false)
-const rescheduling = ref(false)
-const rescheduleForm = ref({
-    date: '',
-    selectedSlot: null,
-    reason: ''
-})
-const availableSlots = ref([])
-
-// Min date for reschedule (today)
-const minDate = new Date().toISOString().split('T')[0]
-
-// Status icon mapping with SVGs
-const statusIcon = computed(() => {
-    const status = booking.value?.status
-    switch (status) {
-        case 'pending':
-            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>`
-        case 'confirmed':
-            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`
-        case 'completed':
-            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z" fill="currentColor" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>`
-        case 'cancelled':
-            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`
-        default:
-            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>`
-    }
-})
-
-// Professional image
-const professionalImage = computed(() => {
-    if (!booking.value?.skilled_image) return '/default-avatar.png'
-
-    let imagePath = booking.value.skilled_image.replace(/\\/g, '/')
-
-    if (!imagePath.startsWith('/uploads')) {
-        imagePath = `/uploads/${imagePath.split('/').pop()}`
-    }
-
-    return `http://localhost:3000${imagePath}`
-})
-
-// Load booking
-const loadBooking = async () => {
-    loading.value = true
-    error.value = ''
-
-    try {
-        const bookingId = route.params.id
-        const response = await getBookingById(bookingId)
-        booking.value = response.booking
-    } catch (err) {
-        console.error('Error loading booking:', err)
-        error.value = 'Failed to load booking details'
-    } finally {
-        loading.value = false
-    }
-}
-
-// Format date
-const formatFullDate = (dateString) => {
-    if (!dateString) return 'N/A'
-
-    const date = new Date(dateString)
-
-    return date.toLocaleString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    })
-}
-
-// Format time for slots
-const formatTime = (datetime) => {
-    const date = new Date(datetime)
-    return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    })
-}
-
-// Go back
-const goBack = () => {
-    router.push('/bookings')
-}
-
-// Cancel booking
-const cancelBooking = async () => {
-    if (!booking.value) return
-
-    if (!confirm('Are you sure you want to cancel this booking?')) return
-
-    cancelling.value = true
-
-    try {
-        await cancelBookingApi(booking.value.booking_id)
-        booking.value.status = 'cancelled'
-        alert('Booking cancelled successfully')
-    } catch (err) {
-        alert(err.response?.data?.message || 'Failed to cancel booking')
-    } finally {
-        cancelling.value = false
-    }
-}
-
-// Reschedule modal functions
-const openRescheduleModal = () => {
-    showRescheduleModal.value = true
-    rescheduleForm.value = { date: '', selectedSlot: null, reason: '' }
-    availableSlots.value = []
-}
-
-const closeRescheduleModal = () => {
-    showRescheduleModal.value = false
-}
-
-// Load available time slots
-const loadAvailableSlots = async () => {
-    if (!rescheduleForm.value.date || !booking.value) return
-
-    try {
-        const response = await getAvailableSlots(booking.value.skilled_id, rescheduleForm.value.date)
-        availableSlots.value = response.slots
-        rescheduleForm.value.selectedSlot = null
-    } catch (error) {
-        console.error('Error loading slots:', error)
-        alert('Failed to load available time slots')
-    }
-}
-
-// Select time slot
-const selectTimeSlot = (slot) => {
-    if (!slot.available) return
-    rescheduleForm.value.selectedSlot = slot.time
-}
-
-// Submit reschedule
-const submitReschedule = async () => {
-    if (!rescheduleForm.value.date || !rescheduleForm.value.selectedSlot) return
-
-    rescheduling.value = true
-    try {
-        await rescheduleBooking(
-            booking.value.booking_id,
-            rescheduleForm.value.selectedSlot,
-            rescheduleForm.value.reason
-        )
-
-        closeRescheduleModal()
-        await loadBooking()
-        alert('Booking rescheduled successfully')
-    } catch (err) {
-        alert(err.response?.data?.message || 'Failed to reschedule booking')
-    } finally {
-        rescheduling.value = false
-    }
-}
-
-// Leave review
-const leaveReview = () => {
-    if (!booking.value) return
-
-    router.push({
-        path: `/skilled-profile/${booking.value.skilled_id}`,
-        query: { booking_id: booking.value.booking_id, review: 'true' }
-    })
-}
-
-// Contact professional
-const contactProfessional = () => {
-    if (!booking.value) return
-
-    router.push(`/messages`)
-}
-
-onMounted(() => {
-    loadBooking()
-})
-</script>
-
+<!-- frontend/src/views/BookingDetail.vue -->
 <template>
     <div class="booking-detail-page">
         <noSearchNavbar />
@@ -251,7 +41,7 @@ onMounted(() => {
                 </div>
 
                 <div class="detail-grid">
-                    <!-- Left Column - Professional Info -->
+                    <!-- Left Column - Other Party Info -->
                     <div class="info-section">
                         <h2>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -263,18 +53,17 @@ onMounted(() => {
                                     d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
                                     stroke="currentColor" stroke-width="1.5" />
                             </svg>
-                            Professional Details
+                            {{ otherPartyRole }} Details
                         </h2>
 
                         <div class="professional-detail">
-                            <img :src="professionalImage" :alt="booking.skilled_firstName"
-                                class="professional-detail-image">
+                            <img :src="otherPartyImage" :alt="otherPartyName" class="professional-detail-image">
                             <div class="professional-detail-info">
-                                <h3>{{ booking.skilled_firstName }} {{ booking.skilled_lastName }}</h3>
-                                <p class="professional-skill">{{ booking.skills || 'Professional' }}</p>
+                                <h3>{{ otherPartyName }}</h3>
+                                <p class="professional-skill">{{ otherPartyRole }}</p>
                                 <div class="professional-rating">
-                                    <span class="stars">{{ '★'.repeat(Math.floor(booking.skilled_rating || 0)) }}</span>
-                                    <span>({{ booking.skilled_reviews || 0 }} reviews)</span>
+                                    <span class="stars">{{ '★'.repeat(Math.floor(otherPartyRating)) }}</span>
+                                    <span>({{ otherPartyReviews }} reviews)</span>
                                 </div>
                             </div>
                         </div>
@@ -289,7 +78,7 @@ onMounted(() => {
                                 </svg>
                                 Contact:
                             </span>
-                            <span class="info-value">{{ booking.skilled_phone || 'Not provided' }}</span>
+                            <span class="info-value">{{ otherPartyPhone }}</span>
                         </div>
 
                         <div class="info-row">
@@ -303,8 +92,22 @@ onMounted(() => {
                                 </svg>
                                 Email:
                             </span>
-                            <span class="info-value">{{ booking.skilled_email || 'Not provided' }}</span>
+                            <span class="info-value">{{ otherPartyEmail }}</span>
                         </div>
+
+                        <!-- View Full Profile Button -->
+                        <button @click="viewOtherPartyProfile" class="btn-view-profile">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+                                    stroke="currentColor" stroke-width="1.5" />
+                                <path
+                                    d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                                    stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                            View Full Profile
+                        </button>
                     </div>
 
                     <!-- Right Column - Booking Info -->
@@ -471,14 +274,14 @@ onMounted(() => {
                         Leave Review
                     </button>
 
-                    <button @click="contactProfessional" class="btn-contact">
+                    <button @click="contactOtherParty" class="btn-contact">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path
                                 d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z"
                                 stroke="white" stroke-width="1.5" />
                             <path d="M8 9H16M8 13H13" stroke="white" stroke-width="1.5" />
                         </svg>
-                        Message Professional
+                        Message
                     </button>
                 </div>
             </div>
@@ -569,282 +372,391 @@ onMounted(() => {
     </div>
 </template>
 
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import noSearchNavbar from '@/components/noSearchNavbar.vue'
+import { getBookingById, cancelBooking as cancelBookingApi, rescheduleBooking, getAvailableSlots } from '@/api/bookingService'
+import { getUserProfile } from '@/api/userService'
+
+const route = useRoute()
+const router = useRouter()
+
+const loading = ref(true)
+const error = ref('')
+const booking = ref(null)
+const cancelling = ref(false)
+const currentUser = ref(null)
+
+// Reschedule modal
+const showRescheduleModal = ref(false)
+const rescheduling = ref(false)
+const rescheduleForm = ref({
+    date: '',
+    selectedSlot: null,
+    reason: ''
+})
+const availableSlots = ref([])
+
+// Min date for reschedule (today)
+const minDate = new Date().toISOString().split('T')[0]
+
+// Helper function to get image URL
+const getImageUrl = (imagePath) => {
+    if (!imagePath) return '/default-avatar.png'
+    let formattedPath = imagePath.replace(/\\/g, '/')
+    if (!formattedPath.startsWith('/uploads')) {
+        formattedPath = `/uploads/${formattedPath.split('/').pop()}`
+    }
+    return `http://localhost:3000${formattedPath}`
+}
+
+// Get current user to determine role
+const getCurrentUser = async () => {
+    try {
+        const response = await getUserProfile()
+        currentUser.value = response.user
+        console.log('Current user:', currentUser.value)
+    } catch (error) {
+        console.error('Error getting current user:', error)
+    }
+}
+
+// Determine the other party based on who the current user is
+const otherPartyData = computed(() => {
+    if (!booking.value || !currentUser.value) return null
+
+    const currentUserId = currentUser.value.user_id
+    const currentUserRole = currentUser.value.role
+
+    console.log('========== BOOKING DETAILS ==========')
+    console.log('Current User ID:', currentUserId)
+    console.log('Current User Role:', currentUserRole)
+    console.log('Booking client_id:', booking.value.client_id)
+    console.log('Booking client_role:', booking.value.client_role)
+    console.log('Booking client_skilled_id:', booking.value.client_skilled_id)
+    console.log('Booking client_skilled_image:', booking.value.client_skilled_image)
+    console.log('Booking client_image:', booking.value.client_image)
+    console.log('Booking skilled_user_id:', booking.value.skilled_user_id)
+    console.log('Booking skilled_id:', booking.value.skilled_id)
+    console.log('Booking skilled_image:', booking.value.skilled_image)
+
+    // Case 1: Current user is the client (person who made the booking)
+    if (currentUserId === booking.value.client_id) {
+        console.log('Case: User is CLIENT')
+        // Other party is the skilled worker (the one being booked)
+        // This is always a skilled worker profile
+        return {
+            id: booking.value.skilled_id,
+            firstName: booking.value.skilled_firstName,
+            lastName: booking.value.skilled_lastName,
+            image: booking.value.skilled_image,
+            phone: booking.value.skilled_phone,
+            email: booking.value.skilled_email,
+            rating: booking.value.skilled_rating,
+            reviews: booking.value.skilled_reviews,
+            role: 'Professional',
+            profileType: 'skilled',
+            profileLink: `/skilled-profile/${booking.value.skilled_id}`
+        }
+    }
+    // Case 2: Current user is the skilled worker (the one being booked)
+    else if (currentUserId === booking.value.skilled_user_id) {
+        console.log('Case: User is SKILLED WORKER (being booked)')
+        // Other party is the client
+        // Determine if the client is a resident or a skilled worker
+
+        // Check if the client is a skilled worker (has client_skilled_id)
+        const isClientSkilled = booking.value.client_role === 'skilled'
+
+        console.log('Is client a skilled worker?', isClientSkilled)
+        console.log('Client skilled_id:', booking.value.client_skilled_id)
+
+        if (isClientSkilled && booking.value.client_skilled_id) {
+            // Client is also a skilled worker - use their skilled image from skilled_profiles
+            console.log('Client is a skilled worker, using skilled image')
+            return {
+                id: booking.value.client_skilled_id,
+                firstName: booking.value.client_firstName,
+                lastName: booking.value.client_lastName,
+                image: booking.value.client_skilled_image || booking.value.client_image,
+                phone: booking.value.client_phone,
+                email: booking.value.client_email,
+                rating: booking.value.client_rating,
+                reviews: booking.value.client_reviews,
+                role: 'Professional',
+                profileType: 'skilled',
+                profileLink: `/skilled-profile/${booking.value.client_skilled_id}`
+            }
+        } else {
+            // Client is a resident - use user image from users table
+            console.log('Client is a resident, using user image')
+            return {
+                id: booking.value.client_id,
+                firstName: booking.value.client_firstName,
+                lastName: booking.value.client_lastName,
+                image: booking.value.client_image,
+                phone: booking.value.client_phone,
+                email: booking.value.client_email,
+                rating: booking.value.client_rating,
+                reviews: booking.value.client_reviews,
+                role: 'Resident',
+                profileType: 'resident',
+                profileLink: `/resident/${booking.value.client_id}`
+            }
+        }
+    }
+
+    console.log('Could not determine other party')
+    return null
+})
+
+// Computed properties using otherPartyData
+const otherPartyImage = computed(() => {
+    return otherPartyData.value ? getImageUrl(otherPartyData.value.image) : '/default-avatar.png'
+})
+
+const otherPartyName = computed(() => {
+    return otherPartyData.value ? `${otherPartyData.value.firstName} ${otherPartyData.value.lastName}` : ''
+})
+
+const otherPartyRole = computed(() => {
+    return otherPartyData.value ? otherPartyData.value.role : ''
+})
+
+const otherPartyPhone = computed(() => {
+    return otherPartyData.value ? otherPartyData.value.phone || 'Not provided' : 'Not provided'
+})
+
+const otherPartyEmail = computed(() => {
+    return otherPartyData.value ? otherPartyData.value.email || 'Not provided' : 'Not provided'
+})
+
+const otherPartyRating = computed(() => {
+    return otherPartyData.value ? otherPartyData.value.rating || 0 : 0
+})
+
+const otherPartyReviews = computed(() => {
+    return otherPartyData.value ? otherPartyData.value.reviews || 0 : 0
+})
+
+const otherPartyProfileLink = computed(() => {
+    return otherPartyData.value ? otherPartyData.value.profileLink : ''
+})
+
+// Status icon mapping with SVGs
+const statusIcon = computed(() => {
+    const status = booking.value?.status
+    switch (status) {
+        case 'pending':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>`
+        case 'confirmed':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`
+        case 'completed':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z" fill="currentColor" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>`
+        case 'cancelled':
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`
+        default:
+            return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 2V6M16 2V6M3 10H21" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>`
+    }
+})
+
+// Load booking
+const loadBooking = async () => {
+    loading.value = true
+    error.value = ''
+
+    try {
+        const bookingId = route.params.id
+        const response = await getBookingById(bookingId)
+        booking.value = response.booking
+        console.log('Booking data:', booking.value)
+    } catch (err) {
+        console.error('Error loading booking:', err)
+        error.value = 'Failed to load booking details'
+    } finally {
+        loading.value = false
+    }
+}
+
+// Format date
+const formatFullDate = (dateString) => {
+    if (!dateString) return 'N/A'
+
+    const date = new Date(dateString)
+
+    return date.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    })
+}
+
+// Format time for slots
+const formatTime = (datetime) => {
+    const date = new Date(datetime)
+    return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    })
+}
+
+// Go back
+const goBack = () => {
+    router.push('/bookings')
+}
+
+// Cancel booking
+const cancelBooking = async () => {
+    if (!booking.value) return
+
+    if (!confirm('Are you sure you want to cancel this booking?')) return
+
+    cancelling.value = true
+
+    try {
+        await cancelBookingApi(booking.value.booking_id)
+        booking.value.status = 'cancelled'
+        alert('Booking cancelled successfully')
+    } catch (err) {
+        alert(err.response?.data?.message || 'Failed to cancel booking')
+    } finally {
+        cancelling.value = false
+    }
+}
+
+// Reschedule modal functions
+const openRescheduleModal = () => {
+    showRescheduleModal.value = true
+    rescheduleForm.value = { date: '', selectedSlot: null, reason: '' }
+    availableSlots.value = []
+}
+
+const closeRescheduleModal = () => {
+    showRescheduleModal.value = false
+}
+
+// Load available time slots
+const loadAvailableSlots = async () => {
+    if (!rescheduleForm.value.date || !booking.value) return
+
+    try {
+        const response = await getAvailableSlots(booking.value.skilled_id, rescheduleForm.value.date)
+        availableSlots.value = response.slots
+        rescheduleForm.value.selectedSlot = null
+    } catch (error) {
+        console.error('Error loading slots:', error)
+        alert('Failed to load available time slots')
+    }
+}
+
+// Select time slot
+const selectTimeSlot = (slot) => {
+    if (!slot.available) return
+    rescheduleForm.value.selectedSlot = slot.time
+}
+
+// Submit reschedule
+const submitReschedule = async () => {
+    if (!rescheduleForm.value.date || !rescheduleForm.value.selectedSlot) return
+
+    rescheduling.value = true
+    try {
+        await rescheduleBooking(
+            booking.value.booking_id,
+            rescheduleForm.value.selectedSlot,
+            rescheduleForm.value.reason
+        )
+
+        closeRescheduleModal()
+        await loadBooking()
+        alert('Booking rescheduled successfully')
+    } catch (err) {
+        alert(err.response?.data?.message || 'Failed to reschedule booking')
+    } finally {
+        rescheduling.value = false
+    }
+}
+
+// Leave review for professional
+const leaveReview = () => {
+    if (!booking.value) return
+
+    router.push({
+        path: `/skilled-profile/${booking.value.skilled_id}`,
+        query: { booking_id: booking.value.booking_id, review: 'true' }
+    })
+}
+
+// View other party profile
+const viewOtherPartyProfile = () => {
+    if (!otherPartyProfileLink.value) return
+    console.log('Navigating to:', otherPartyProfileLink.value)
+    router.push(otherPartyProfileLink.value)
+}
+
+// Contact other party
+const contactOtherParty = () => {
+    if (!otherPartyData.value) return
+
+    if (otherPartyData.value.profileType === 'skilled') {
+        router.push(`/messages?skilled=${otherPartyData.value.id}`)
+    } else {
+        router.push(`/messages?user=${otherPartyData.value.id}`)
+    }
+}
+
+onMounted(async () => {
+    await getCurrentUser()
+    await loadBooking()
+})
+</script>
+
 <style scoped>
-/* All existing styles remain the same, just update the modal-specific styles */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    display: flex;
+.btn-view-profile {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    z-index: 1100;
-    animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
-.modal-content {
-    background: white;
-    border-radius: 24px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 2px solid #f1f5f9;
-}
-
-.modal-header h3 {
-    margin: 0;
-    color: #1e293b;
-    font-size: 1.25rem;
-    font-weight: 700;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    color: #64748b;
-}
-
-.close-btn:hover {
-    background: #f1f5f9;
-    color: #ef4444;
-    transform: rotate(90deg);
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.booking-summary {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    background: #f8fafc;
-    padding: 1rem;
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
-    border-left: 3px solid #4f46e5;
-}
-
-.booking-summary svg {
-    stroke: #4f46e5;
-    flex-shrink: 0;
-}
-
-.booking-summary p {
-    margin: 0;
-    color: #475569;
-}
-
-.form-group {
-    margin-bottom: 1.5rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: #334155;
-    font-size: 0.9rem;
-}
-
-.required {
-    color: #ef4444;
-}
-
-.date-input-wrapper,
-.textarea-wrapper {
-    position: relative;
-}
-
-.date-input-wrapper svg,
-.textarea-wrapper svg {
-    position: absolute;
-    left: 12px;
-    top: 12px;
-    stroke: #94a3b8;
-    pointer-events: none;
-}
-
-.form-input,
-.form-textarea {
+    gap: 0.5rem;
     width: 100%;
-    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-    font-family: inherit;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-    outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.form-textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.time-slots {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-}
-
-.time-slot {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 0.5rem;
-    background: #f8fafc;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #1e293b;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.time-slot svg {
-    stroke: currentColor;
-}
-
-.time-slot:hover:not(:disabled) {
-    background: #e0e7ff;
-    border-color: #4f46e5;
-    transform: translateY(-2px);
-}
-
-.time-slot.selected {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    border-color: #4f46e5;
-    color: white;
-}
-
-.time-slot.unavailable {
-    background: #f1f5f9;
-    color: #94a3b8;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-.no-slots {
-    grid-column: 1 / -1;
-    text-align: center;
-    color: #64748b;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 8px;
-}
-
-.modal-footer {
-    display: flex;
-    gap: 1rem;
-    padding: 1.5rem;
-    border-top: 2px solid #f1f5f9;
-}
-
-.btn-cancel,
-.btn-submit {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    margin-top: 1rem;
     padding: 0.75rem;
+    background: #10b981;
+    color: white;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
-.btn-cancel {
-    background: #f1f5f9;
-    color: #64748b;
-}
-
-.btn-cancel:hover {
-    background: #e2e8f0;
-}
-
-.btn-submit {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: white;
-}
-
-.btn-submit:hover:not(:disabled) {
+.btn-view-profile:hover {
+    background: #059669;
     transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
 }
 
-.btn-submit:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.btn-view-profile svg {
+    stroke: white;
 }
 
-.spinner-small {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-}
-
-/* Keep all existing styles from the original component */
+/* Keep all your existing styles from the original component */
 .booking-detail-page {
     min-height: 100vh;
     background: #f8fafc;
@@ -1230,6 +1142,280 @@ onMounted(() => {
     background: #4338ca;
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-content {
+    background: white;
+    border-radius: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    color: #64748b;
+}
+
+.close-btn:hover {
+    background: #f1f5f9;
+    color: #ef4444;
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.booking-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border-left: 3px solid #4f46e5;
+}
+
+.booking-summary svg {
+    stroke: #4f46e5;
+    flex-shrink: 0;
+}
+
+.booking-summary p {
+    margin: 0;
+    color: #475569;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.9rem;
+}
+
+.required {
+    color: #ef4444;
+}
+
+.date-input-wrapper,
+.textarea-wrapper {
+    position: relative;
+}
+
+.date-input-wrapper svg,
+.textarea-wrapper svg {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    stroke: #94a3b8;
+    pointer-events: none;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.time-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.time-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0.5rem;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.time-slot svg {
+    stroke: currentColor;
+}
+
+.time-slot:hover:not(:disabled) {
+    background: #e0e7ff;
+    border-color: #4f46e5;
+    transform: translateY(-2px);
+}
+
+.time-slot.selected {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    border-color: #4f46e5;
+    color: white;
+}
+
+.time-slot.unavailable {
+    background: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.no-slots {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #64748b;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 2px solid #f1f5f9;
+}
+
+.btn-cancel,
+.btn-submit {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-cancel {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.btn-cancel:hover {
+    background: #e2e8f0;
+}
+
+.btn-submit {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: white;
+}
+
+.btn-submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+}
+
+.btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
 }
 
 /* Responsive */

@@ -138,3 +138,78 @@ export const deleteAccount = async (password) => {
     throw error
   }
 }
+
+export const getResidentPublicProfile = async (residentId) => {
+  try {
+    const response = await API.get(`/users/resident/${residentId}/public`)
+    return response.data
+  } catch (error) {
+    console.error('Error fetching resident public profile:', error)
+    throw error
+  }
+}
+
+/**
+ * Get resident ratings from professionals
+ * @param {number} residentId - The ID of the resident
+ * @param {number} page - Page number for pagination
+ * @param {number} limit - Number of items per page
+ * @returns {Promise<Object>} Ratings data with pagination
+ */
+export const getResidentRatings = async (residentId, page = 1, limit = 10) => {
+  try {
+    const response = await API.get(`/users/resident/${residentId}/ratings`, {
+      params: { page, limit },
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error fetching resident ratings:', error)
+    throw error
+  }
+}
+
+/**
+ * Get resident statistics (bookings, spending)
+ * @param {number} residentId - The ID of the resident
+ * @returns {Promise<Object>} Resident statistics
+ */
+export const getResidentStats = async (residentId) => {
+  try {
+    const response = await API.get(`/users/resident/${residentId}/stats`)
+    return response.data
+  } catch (error) {
+    console.error('Error fetching resident stats:', error)
+    throw error
+  }
+}
+
+// ============= RESIDENT PRIVATE (AUTHENTICATED) =============
+/**
+ * Get resident profile with private info (requires authentication)
+ * @param {number} residentId - The ID of the resident
+ * @returns {Promise<Object>} Resident profile data
+ */
+export const getResidentProfile = async (residentId) => {
+  try {
+    const response = await API.get(`/users/resident/${residentId}`, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching resident profile:', error)
+    throw error
+  }
+}
+
+/**
+ * Get resident private stats (requires authentication)
+ * @param {number} residentId - The ID of the resident
+ * @returns {Promise<Object>} Resident statistics
+ */
+export const getResidentPrivateStats = async (residentId) => {
+  try {
+    const response = await API.get(`/users/resident/${residentId}/stats/private`, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching resident private stats:', error)
+    throw error
+  }
+}

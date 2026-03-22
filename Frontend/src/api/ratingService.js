@@ -9,6 +9,28 @@ const getAuthHeader = () => {
   }
 }
 
+export const submitRatingForResident = async (data) => {
+  try {
+    const response = await API.post('/ratings/resident', data, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error submitting rating:', error)
+    throw error
+  }
+}
+
+// Get ratings for a resident
+export const getResidentRatings = async (residentId, page = 1, limit = 10) => {
+  try {
+    const response = await API.get(`/ratings/resident/${residentId}`, {
+      params: { page, limit },
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error fetching resident ratings:', error)
+    throw error
+  }
+}
 // Submit a rating
 export const submitRating = async (data) => {
   try {

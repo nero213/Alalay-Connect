@@ -1,3 +1,4 @@
+// frontend/src/api/notificationService.js
 import API from './axios'
 
 const getAuthHeader = () => {
@@ -29,7 +30,7 @@ export const getUnreadCount = async () => {
     const response = await API.get('/notifications/unread-count', getAuthHeader())
     return response.data
   } catch (error) {
-    console.error('Error fetching unread count:', error)
+    console.error('Error getting unread count:', error)
     throw error
   }
 }
@@ -40,12 +41,12 @@ export const markAsRead = async (notificationId) => {
     const response = await API.put(`/notifications/${notificationId}/read`, {}, getAuthHeader())
     return response.data
   } catch (error) {
-    console.error('Error marking notification as read:', error)
+    console.error('Error marking as read:', error)
     throw error
   }
 }
 
-// Mark all as read
+// Mark all notifications as read
 export const markAllAsRead = async () => {
   try {
     const response = await API.put('/notifications/read-all', {}, getAuthHeader())

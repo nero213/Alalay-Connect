@@ -25,7 +25,9 @@ import AdminReports from '@/views/admin/AdminReports.vue'
 import Messages from '@/views/Messages.vue'
 import ForgotPassword from '@/auth/ForgotPassword.vue'
 import ResetPassword from '@/auth/ResetPassword.vue'
-
+import ResidentPublicProfile from '@/views/ResidentPublicProfile.vue'
+import HelpCenter from '@/views/HelpCenter.vue'
+import AdminHelpCenter from '@/views/admin/AdminHelpCenter.vue'
 const routes = [
   {
     path: '/login',
@@ -146,6 +148,17 @@ const routes = [
     name: 'ResetPassword',
     component: ResetPassword,
   },
+  {
+    path: '/resident/:id',
+    name: 'ResidentPublicProfile',
+    component: ResidentPublicProfile,
+  },
+  {
+    path: '/help',
+    name: 'HelpCenter',
+    component: HelpCenter,
+    meta: { requiresAuth: true },
+  },
 
   {
     path: '/admin',
@@ -156,6 +169,12 @@ const routes = [
         path: 'dashboard',
         name: 'AdminDashboard',
         component: AdminDashboard,
+        meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'help',
+        name: 'AdminHelpCenter',
+        component: AdminHelpCenter,
         meta: { requiresAuth: true, requiresAdmin: true },
       },
       {

@@ -2,6 +2,7 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { registerUsers } from '@/api/userService'
+import { getCities, getBarangays } from '@/utils/locationService'
 
 const router = useRouter()
 
@@ -13,6 +14,8 @@ const registerForms = reactive({
   password: '',
   confirmPassword: '',
   phone: '',
+  city: '',
+  barangay: ''
 })
 
 // Validation errors
@@ -23,6 +26,8 @@ const errors = reactive({
   password: '',
   confirmPassword: '',
   phone: '',
+  city: '',
+  barangay: ''
 })
 
 // UI state
@@ -32,6 +37,21 @@ const loading = ref(false)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const acceptedTerms = ref(false)
+
+// Available cities from location service
+const cities = getCities()
+
+// Available barangays based on selected city
+const availableBarangays = computed(() => {
+  if (!registerForms.city) return []
+  return getBarangays(registerForms.city)
+})
+
+// Reset barangay when city changes
+const onCityChange = () => {
+  registerForms.barangay = ''
+  validateField('barangay')
+}
 
 // Email validation
 const validateEmail = (email) => {
@@ -103,6 +123,8 @@ const isFormValid = computed(() => {
     registerForms.password &&
     registerForms.confirmPassword &&
     registerForms.phone &&
+    registerForms.city &&
+    registerForms.barangay &&
     acceptedTerms.value &&
     validateEmail(registerForms.email) &&
     passwordsMatch.value === true &&
@@ -182,6 +204,22 @@ const validateField = (field) => {
         errors.phone = ''
       }
       break
+
+    case 'city':
+      if (!registerForms.city) {
+        errors.city = 'Please select your city/municipality'
+      } else {
+        errors.city = ''
+      }
+      break
+
+    case 'barangay':
+      if (!registerForms.barangay) {
+        errors.barangay = 'Please select your barangay'
+      } else {
+        errors.barangay = ''
+      }
+      break
   }
 }
 
@@ -200,7 +238,6 @@ const handleInput = (field) => {
   validateField(field)
 }
 
-// Submit form
 // Submit form
 const userRegister = async () => {
   // Validate all fields
@@ -231,6 +268,8 @@ const userRegister = async () => {
       lastName: registerForms.lastName.trim(),
       password: registerForms.password,
       phone: formattedPhone,
+      city: registerForms.city,
+      barangay: registerForms.barangay
     })
 
     // Check if verification is required
@@ -281,71 +320,61 @@ const formatName = (field) => {
         <!-- Email Field -->
         <div class="input-group" :class="{ 'has-error': errors.email }">
           <label for="email">Email Address</label>
-          <input
-            id="email"
-            type="email"
-            v-model="registerForms.email"
-            placeholder="your@email.com"
-            required
-            @input="handleInput('email')"
-            @blur="validateField('email')"
-            :disabled="loading"
-          />
+          <input id="email" type="email" v-model="registerForms.email" placeholder="your@email.com" required
+            @input="handleInput('email')" @blur="validateField('email')" :disabled="loading" />
           <span v-if="errors.email" class="field-error">{{ errors.email }}</span>
         </div>
 
         <!-- First Name Field -->
         <div class="input-group" :class="{ 'has-error': errors.firstName }">
           <label for="firstName">First Name</label>
-          <input
-            id="firstName"
-            type="text"
-            v-model="registerForms.firstName"
-            placeholder="John"
-            required
-            @input="handleInput('firstName')"
-            @blur="formatName('firstName')"
-            :disabled="loading"
-          />
+          <input id="firstName" type="text" v-model="registerForms.firstName" placeholder="John" required
+            @input="handleInput('firstName')" @blur="formatName('firstName')" :disabled="loading" />
           <span v-if="errors.firstName" class="field-error">{{ errors.firstName }}</span>
         </div>
 
         <!-- Last Name Field -->
         <div class="input-group" :class="{ 'has-error': errors.lastName }">
           <label for="lastName">Last Name</label>
-          <input
-            id="lastName"
-            type="text"
-            v-model="registerForms.lastName"
-            placeholder="Doe"
-            required
-            @input="handleInput('lastName')"
-            @blur="formatName('lastName')"
-            :disabled="loading"
-          />
+          <input id="lastName" type="text" v-model="registerForms.lastName" placeholder="Doe" required
+            @input="handleInput('lastName')" @blur="formatName('lastName')" :disabled="loading" />
           <span v-if="errors.lastName" class="field-error">{{ errors.lastName }}</span>
+        </div>
+
+        <!-- City/Municipality Field -->
+        <div class="input-group" :class="{ 'has-error': errors.city }">
+          <label for="city">City/Municipality</label>
+          <select id="city" v-model="registerForms.city" class="location-select" @change="onCityChange"
+            @blur="validateField('city')" :disabled="loading">
+            <option value="">Select your city/municipality</option>
+            <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
+          </select>
+          <span v-if="errors.city" class="field-error">{{ errors.city }}</span>
+        </div>
+
+        <!-- Barangay Field -->
+        <div class="input-group" :class="{ 'has-error': errors.barangay }">
+          <label for="barangay">Barangay</label>
+          <select id="barangay" v-model="registerForms.barangay" class="location-select"
+            :disabled="!registerForms.city || loading" @blur="validateField('barangay')">
+            <option value="">Select your barangay</option>
+            <option v-for="barangay in availableBarangays" :key="barangay" :value="barangay">
+              {{ barangay }}
+            </option>
+          </select>
+          <span v-if="errors.barangay" class="field-error">{{ errors.barangay }}</span>
+          <small v-if="!registerForms.city" class="hint">Please select city/municipality first</small>
         </div>
 
         <!-- Password Field -->
         <div class="input-group" :class="{ 'has-error': errors.password }">
           <label for="password">Password</label>
           <div class="password-wrapper">
-            <input
-              id="password"
-              :type="showPassword ? 'text' : 'password'"
-              v-model="registerForms.password"
-              placeholder="••••••••"
-              required
-              @input="handleInput('password')"
-              @blur="validateField('password')"
-              :disabled="loading"
-            />
-            <button
-              type="button"
-              class="password-toggle"
-              @click="showPassword = !showPassword"
-              :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            >
+            <input id="password" :type="showPassword ? 'text' : 'password'" v-model="registerForms.password"
+              placeholder="••••••••" required @input="handleInput('password')" @blur="validateField('password')"
+              :disabled="loading" />
+            <button type="button" class="password-toggle" @click="showPassword = !showPassword"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'">
               {{ showPassword ? 'Hide' : 'Show' }}
             </button>
           </div>
@@ -353,20 +382,14 @@ const formatName = (field) => {
           <!-- Password strength indicator -->
           <div class="strength-wrapper" v-if="registerForms.password">
             <div class="strength-bar">
-              <div
-                class="strength-fill"
-                :class="strengthLabel.class"
-                :style="{ width: passwordStrength * 25 + '%' }"
-              ></div>
+              <div class="strength-fill" :class="strengthLabel.class" :style="{ width: passwordStrength * 25 + '%' }">
+              </div>
             </div>
             <small :class="strengthLabel.class"> {{ strengthLabel.text }} Password </small>
           </div>
 
           <!-- Password requirements -->
-          <div
-            v-if="registerForms.password && passwordErrors.length > 0"
-            class="password-requirements"
-          >
+          <div v-if="registerForms.password && passwordErrors.length > 0" class="password-requirements">
             <small>Password must contain:</small>
             <ul>
               <li v-for="(error, index) in passwordErrors" :key="index" class="requirement-item">
@@ -382,26 +405,14 @@ const formatName = (field) => {
         <div class="input-group" :class="{ 'has-error': errors.confirmPassword }">
           <label for="confirmPassword">Confirm Password</label>
           <div class="password-wrapper">
-            <input
-              id="confirmPassword"
-              :type="showConfirmPassword ? 'text' : 'password'"
-              v-model="registerForms.confirmPassword"
-              placeholder="••••••••"
-              :class="{
+            <input id="confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
+              v-model="registerForms.confirmPassword" placeholder="••••••••" :class="{
                 'input-success': passwordsMatch === true,
                 'input-error': passwordsMatch === false,
-              }"
-              required
-              @input="handleInput('confirmPassword')"
-              @blur="validateField('confirmPassword')"
-              :disabled="loading"
-            />
-            <button
-              type="button"
-              class="password-toggle"
-              @click="showConfirmPassword = !showConfirmPassword"
-              :aria-label="showConfirmPassword ? 'Hide password' : 'Show password'"
-            >
+              }" required @input="handleInput('confirmPassword')" @blur="validateField('confirmPassword')"
+              :disabled="loading" />
+            <button type="button" class="password-toggle" @click="showConfirmPassword = !showConfirmPassword"
+              :aria-label="showConfirmPassword ? 'Hide password' : 'Show password'">
               {{ showConfirmPassword ? 'Hide' : 'Show' }}
             </button>
           </div>
@@ -414,7 +425,7 @@ const formatName = (field) => {
 
           <span v-if="errors.confirmPassword" class="field-error">{{
             errors.confirmPassword
-          }}</span>
+            }}</span>
         </div>
 
         <!-- Phone Field -->
@@ -425,17 +436,8 @@ const formatName = (field) => {
               <span class="flag">🇵🇭</span>
               <span>+63</span>
             </div>
-            <input
-              id="phone"
-              type="tel"
-              v-model="registerForms.phone"
-              placeholder="9XXXXXXXXX"
-              maxlength="10"
-              required
-              @input="handlePhoneInput"
-              @blur="validateField('phone')"
-              :disabled="loading"
-            />
+            <input id="phone" type="tel" v-model="registerForms.phone" placeholder="9XXXXXXXXX" maxlength="10" required
+              @input="handlePhoneInput" @blur="validateField('phone')" :disabled="loading" />
           </div>
           <small class="hint">Enter 10-digit mobile number (e.g., 9123456789)</small>
           <span v-if="errors.phone" class="field-error">{{ errors.phone }}</span>
@@ -445,10 +447,8 @@ const formatName = (field) => {
         <div class="terms-group">
           <label class="checkbox-label">
             <input type="checkbox" v-model="acceptedTerms" :disabled="loading" />
-            <span
-              >I accept the <a href="#" @click.prevent>Terms and Conditions</a> and
-              <a href="#" @click.prevent>Privacy Policy</a></span
-            >
+            <span>I accept the <a href="#" @click.prevent>Terms and Conditions</a> and
+              <a href="#" @click.prevent>Privacy Policy</a></span>
           </label>
         </div>
 
@@ -522,7 +522,8 @@ const formatName = (field) => {
   color: #555;
 }
 
-.input-group input {
+.input-group input,
+.input-group select {
   width: 100%;
   padding: 12px 15px;
   border: 2px solid #e0e0e0;
@@ -531,17 +532,31 @@ const formatName = (field) => {
   transition: all 0.3s ease;
 }
 
-.input-group input:focus {
+.input-group input:focus,
+.input-group select:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.input-group.has-error input {
+.location-select {
+  background-color: white;
+  cursor: pointer;
+}
+
+.location-select:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.input-group.has-error input,
+.input-group.has-error select {
   border-color: #ff4d4f;
 }
 
-.input-group.has-error input:focus {
+.input-group.has-error input:focus,
+.input-group.has-error select:focus {
   border-color: #ff4d4f;
   box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.1);
 }
@@ -837,6 +852,7 @@ small.strong {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -848,6 +864,7 @@ small.strong {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

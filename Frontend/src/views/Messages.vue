@@ -557,7 +557,7 @@ onMounted(async () => {
                                     <div v-else-if="msg.file_url" class="file-attachment">
                                         <a :href="getFileUrl(msg.file_url)" target="_blank" class="file-link">
                                             <span class="file-icon">{{ getFileIcon(msg.file_type, msg.file_name)
-                                            }}</span>
+                                                }}</span>
                                             <div class="file-info">
                                                 <span class="file-name">{{ msg.file_name || 'File' }}</span>
                                                 <span class="file-size">{{ formatFileSize(msg.file_size) }}</span>
