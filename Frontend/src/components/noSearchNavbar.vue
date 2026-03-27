@@ -166,7 +166,7 @@ if (typeof window !== 'undefined') {
     <!-- Navbar -->
     <nav class="navbar">
       <div class="nav-brand">
-        <router-link to="/" class="brand-link">
+        <router-link to="/dashboard" class="brand-link">
           <span class="brand-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L3 7L12 12L21 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"

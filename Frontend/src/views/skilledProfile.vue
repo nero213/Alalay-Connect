@@ -35,6 +35,7 @@ const completionColor = computed(() => {
   return '#10b981'
 })
 
+const baseURL = import.meta.env.VITE_BASE_URL
 const profileImageUrl = computed(() => {
   if (!profile.value?.profile_image) return '/default-avatar.png'
 
@@ -55,7 +56,7 @@ const profileImageUrl = computed(() => {
     }
   }
 
-  return `http://localhost:3000${imagePath}`
+  return `${baseURL}${imagePath}`
 })
 
 // Load profile data

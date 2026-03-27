@@ -358,6 +358,7 @@ const passwordForm = reactive({
     confirmPassword: ''
 })
 
+const baseURL = import.meta.env.VITE_BASE_URL
 // Profile image URL
 const profileImageUrl = computed(() => {
     if (!user.value?.profile_image) return '/default-avatar.png'
@@ -365,7 +366,7 @@ const profileImageUrl = computed(() => {
     if (!imagePath.startsWith('/uploads')) {
         imagePath = `/uploads/${imagePath.split('/').pop()}`
     }
-    return `http://localhost:3000${imagePath}`
+    return `${baseURL}${imagePath}`
 })
 
 // Password strength
@@ -595,7 +596,7 @@ const getWorkerImage = (imagePath) => {
     if (!formattedPath.startsWith('/uploads')) {
         formattedPath = `/uploads/${formattedPath.split('/').pop()}`
     }
-    return `http://localhost:3000${formattedPath}`
+    return `http://192.191.5.169:3000${formattedPath}`
 }
 
 onMounted(() => {

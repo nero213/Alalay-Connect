@@ -1,0 +1,69 @@
+{
+  "cities": {
+    "Agno": { "lat": 16.1152, "lng": 119.7998 },
+    "Aguilar": { "lat": 15.8887, "lng": 120.2389 },
+    "Alaminos City": { "lat": 16.1551, "lng": 119.9807 },
+    "Anda": { "lat": 16.2893, "lng": 119.9501 },
+    "Asingan": { "lat": 16.0023, "lng": 120.6692 },
+    "Balungao": { "lat": 15.8978, "lng": 120.6989 },
+    "Bani": { "lat": 16.1867, "lng": 119.8578 },
+    "Basista": { "lat": 15.8523, "lng": 120.2978 },
+    "Bautista": { "lat": 15.7867, "lng": 120.5023 },
+    "Bayambang": { "lat": 15.8132, "lng": 120.4567 },
+    "Binalonan": { "lat": 16.0501, "lng": 120.6012 },
+    "Binmaley": { "lat": 16.0322, "lng": 120.2689 },
+    "Bugallon": { "lat": 15.9189, "lng": 120.1989 },
+    "Burgos": { "lat": 16.0678, "lng": 119.8523 },
+    "Calasiao": { "lat": 16.0189, "lng": 120.3656 },
+    "Dagupan City": { "lat": 16.0431, "lng": 120.3339 },
+    "Dasol": { "lat": 15.9856, "lng": 119.8856 },
+    "Infanta": { "lat": 15.8189, "lng": 119.9123 },
+    "Labrador": { "lat": 16.0345, "lng": 120.1467 },
+    "Laoac": { "lat": 16.0356, "lng": 120.5523 },
+    "Lingayen": { "lat": 16.0189, "lng": 120.2312 },
+    "Mabini": { "lat": 16.0689, "lng": 119.9356 },
+    "Malasiqui": { "lat": 15.9212, "lng": 120.4123 },
+    "Manaoag": { "lat": 16.0489, "lng": 120.4856 },
+    "Mangaldan": { "lat": 16.0712, "lng": 120.3989 },
+    "Mangatarem": { "lat": 15.7867, "lng": 120.2812 },
+    "Mapandan": { "lat": 16.0189, "lng": 120.4523 },
+    "Natividad": { "lat": 16.0523, "lng": 120.8189 },
+    "Pozorrubio": { "lat": 16.1189, "lng": 120.5489 },
+    "Rosales": { "lat": 15.8856, "lng": 120.6356 },
+    "San Carlos City": { "lat": 15.928, "lng": 120.3489 },
+    "San Fabian": { "lat": 16.1523, "lng": 120.4489 },
+    "San Jacinto": { "lat": 16.0689, "lng": 120.4356 },
+    "San Manuel": { "lat": 16.0689, "lng": 120.6689 },
+    "San Nicolas": { "lat": 16.0689, "lng": 120.7689 },
+    "San Quintin": { "lat": 15.9856, "lng": 120.8189 },
+    "Santa Barbara": { "lat": 16.0023, "lng": 120.3989 },
+    "Santa Maria": { "lat": 15.9856, "lng": 120.7023 },
+    "Santo Tomas": { "lat": 15.8689, "lng": 120.5856 },
+    "Sison": { "lat": 16.1689, "lng": 120.5189 },
+    "Sual": { "lat": 16.0689, "lng": 120.0989 },
+    "Tayug": { "lat": 15.8856, "lng": 120.7523 },
+    "Umingan": { "lat": 15.8856, "lng": 120.8356 },
+    "Urbiztondo": { "lat": 15.8189, "lng": 120.3356 },
+    "Urdaneta City": { "lat": 15.976, "lng": 120.5711 },
+    "Villasis": { "lat": 15.9023, "lng": 120.5856 }
+  },
+  "barangays": {
+    "Bayambang": {
+      "Buenlag": { "lat": 15.815, "lng": 120.458 }
+    },
+    "Malasiqui": {
+      "Butao": { "lat": 15.922, "lng": 120.4145 }
+    },
+    "Asingan": {
+      "Bobonan": { "lat": 16.004, "lng": 120.671 }
+    },
+    "San Carlos City": {
+      "Malacañang": { "lat": 15.9285, "lng": 120.3512 },
+      "Burgos-Padlan": { "lat": 15.935, "lng": 120.355 },
+      "Tebag": { "lat": 15.925, "lng": 120.345 }
+    },
+    "Umingan": {
+      "Baracbac": { "lat": 15.887, "lng": 120.837 }
+    }
+  }
+}

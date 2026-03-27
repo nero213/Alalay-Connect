@@ -55,6 +55,7 @@ const loadStats = async () => {
     }
 }
 
+const baseURL = import.meta.env.VITE_BASE_URL
 // Get image URL
 const getImageUrl = (imagePath) => {
     if (!imagePath) return '/default-avatar.png'
@@ -63,7 +64,7 @@ const getImageUrl = (imagePath) => {
         const filename = formattedPath.split('/').pop()
         formattedPath = `/uploads/${filename}`
     }
-    return `http://localhost:3000${formattedPath}`
+    return `${baseURL}${formattedPath}`
 }
 
 // Format date
