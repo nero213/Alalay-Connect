@@ -1,3 +1,4 @@
+// backend/controllers/skilled.controller.js
 import { pool } from "../config/db.js";
 import axios from "axios";
 
@@ -9,6 +10,14 @@ const ensureProfileExists = async (userId) => {
   return profile;
 };
 
+const getExistingProfile = async (userId) => {
+  const [rows] = await pool.query(
+    "SELECT * FROM skilled_profiles WHERE user_id = ?",
+    [userId],
+  );
+  return rows[0] || null;
+};
+
 export const getSkilledUsers = async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM skilled_profiles");
@@ -18,34 +27,89 @@ export const getSkilledUsers = async (req, res) => {
   }
 };
 
-// this is for the creation of skilled profile
+// this is for the creation of skilled profile (UPDATED for reapplication)
 export const createSkilledProfile = async (req, res) => {
   try {
     const { bio, years_experience } = req.body;
+    const userId = req.user.id;
 
-    const [existing] = await pool.query(
-      "SELECT * FROM skilled_profiles WHERE user_id = ?",
-      [req.user.id],
-    );
-    if (existing.length) {
-      return res.status(400).json({ message: "skilled profile already exist" });
+    // Check if profile already exists
+    const existingProfile = await getExistingProfile(userId);
+
+    if (existingProfile) {
+      // If profile exists but was rejected, update it instead of inserting
+      if (existingProfile.verification_status === "rejected") {
+        await pool.query(
+          `UPDATE skilled_profiles 
+           SET bio = ?, years_experience = ?, verification_status = 'pending', 
+               verified_at = NULL, gov_id = NULL, certificate = NULL, 
+               profile_image = NULL, hourly_rate = 500
+           WHERE user_id = ?`,
+          [bio, years_experience, userId],
+        );
+        return res.status(200).json({
+          message:
+            "Application resubmitted successfully! Please upload your documents again.",
+          isReapply: true,
+        });
+      }
+
+      // If already pending or approved, don't allow reapplication
+      return res.status(400).json({
+        message: `You already have a ${existingProfile.verification_status} application.`,
+      });
     }
 
+    // Create new profile
     const [[user]] = await pool.query(
-      "SELECT firstName,lastName FROM users WHERE user_id = ? ",
-      [req.user.id],
+      "SELECT firstName, lastName FROM users WHERE user_id = ?",
+      [userId],
     );
+
     if (!user) {
-      return res.status(401).json({ message: "user not found" });
+      return res.status(401).json({ message: "User not found" });
     }
+
     await pool.query(
-      `INSERT INTO skilled_profiles (user_id, firstName, lastName, bio,  years_experience) VALUES (?, ?, ?,?,?)`,
-      [req.user.id, user.firstName, user.lastName, bio, years_experience],
+      `INSERT INTO skilled_profiles (user_id, firstName, lastName, bio, years_experience, verification_status) 
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      [userId, user.firstName, user.lastName, bio, years_experience],
     );
-    res.status(201).json({ message: "skilled profile created" });
+
+    res
+      .status(201)
+      .json({ message: "Skilled profile created and pending review" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Something went wrong with the server" });
+  }
+};
+
+export const deleteRejectedProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [profile] = await pool.query(
+      "SELECT verification_status FROM skilled_profiles WHERE skilled_id = ?",
+      [id],
+    );
+
+    if (!profile.length) {
+      return res.status(404).json({ message: "Profile not found" });
+    }
+
+    if (profile[0].verification_status !== "rejected") {
+      return res.status(400).json({
+        message: "Only rejected profiles can be deleted",
+      });
+    }
+
+    await pool.query("DELETE FROM skilled_profiles WHERE skilled_id = ?", [id]);
+
+    res.json({ message: "Rejected profile deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong" });
   }
 };
 
@@ -66,18 +130,28 @@ export const getMySkilledProfile = async (req, res) => {
   }
 };
 
+// UPDATED: Upload Government ID with reapplication handling
 export const uploadGovID = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const profile = await ensureProfileExists(req.user.id);
-    if (!profile) {
+    const existingProfile = await getExistingProfile(req.user.id);
+
+    if (!existingProfile) {
       return res.status(404).json({ message: "Skilled profile not found" });
     }
 
-    const fileUrl = `/uploads/${req.file.filename}`; // Forward slashes
+    // If profile was rejected, update status to pending (reapplication)
+    if (existingProfile.verification_status === "rejected") {
+      await pool.query(
+        "UPDATE skilled_profiles SET verification_status = 'pending' WHERE user_id = ?",
+        [req.user.id],
+      );
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
 
     await pool.query(
       "UPDATE skilled_profiles SET gov_id = ? WHERE user_id = ?",
@@ -94,18 +168,28 @@ export const uploadGovID = async (req, res) => {
   }
 };
 
+// UPDATED: Upload Certificate with reapplication handling
 export const uploadCertificate = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const profile = await ensureProfileExists(req.user.id);
-    if (!profile) {
+    const existingProfile = await getExistingProfile(req.user.id);
+
+    if (!existingProfile) {
       return res.status(404).json({ message: "Skilled profile not found" });
     }
 
-    const fileUrl = `/uploads/${req.file.filename}`; // Forward slashes
+    // If profile was rejected, update status to pending (reapplication)
+    if (existingProfile.verification_status === "rejected") {
+      await pool.query(
+        "UPDATE skilled_profiles SET verification_status = 'pending' WHERE user_id = ?",
+        [req.user.id],
+      );
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
 
     await pool.query(
       "UPDATE skilled_profiles SET certificate = ? WHERE user_id = ?",
@@ -122,23 +206,32 @@ export const uploadCertificate = async (req, res) => {
   }
 };
 
+// UPDATED: Upload Profile Image with reapplication handling
 export const uploadProfileImages = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const profile = await ensureProfileExists(req.user.id);
-    if (!profile) {
+    const existingProfile = await getExistingProfile(req.user.id);
+
+    if (!existingProfile) {
       return res.status(404).json({ message: "Skilled profile not found" });
     }
 
-    // ✅ IMPORTANT: Use forward slashes for the URL path
+    // If profile was rejected, update status to pending (reapplication)
+    if (existingProfile.verification_status === "rejected") {
+      await pool.query(
+        "UPDATE skilled_profiles SET verification_status = 'pending' WHERE user_id = ?",
+        [req.user.id],
+      );
+    }
+
     const fileUrl = `/uploads/${req.file.filename}`;
 
     await pool.query(
       "UPDATE skilled_profiles SET profile_image = ? WHERE user_id = ?",
-      [fileUrl, req.user.id], // Store with forward slashes
+      [fileUrl, req.user.id],
     );
 
     res.json({
@@ -184,7 +277,7 @@ const getAddressFromCoordinates = async (lat, lon) => {
       {
         params: { lat, lon, format: "json", addressdetails: 1 },
         headers: {
-          "User-Agent": "YourAppName/1.0", // Good practice for Nominatim
+          "User-Agent": "YourAppName/1.0",
         },
       },
     );
@@ -231,6 +324,8 @@ export const updateSkilledLocation = async (req, res) => {
     res.status(500).json({ message: "Something wrong with the server" });
   }
 };
+
+// backend/controllers/skilled.controller.js
 export const searchSkilledWorkers = async (req, res) => {
   try {
     const { lat, lng, skill } = req.query;
@@ -251,6 +346,8 @@ export const searchSkilledWorkers = async (req, res) => {
         sp.longitude,
         sp.profile_image,
         sp.verification_status,
+        sp.barangay,
+        sp.city,
         (
           6371 * acos(
             cos(radians(?)) * 
@@ -300,6 +397,9 @@ export const searchSkilledWorkers = async (req, res) => {
         ? row.skill_names.split(", ")[0]
         : "Professional",
       all_skills: row.skill_names ? row.skill_names.split(", ") : [],
+      skills: row.skill_names
+        ? row.skill_names.split(", ").map((name) => ({ name }))
+        : [], // Add skills array for easier search
     }));
 
     res.status(200).json(results);
@@ -309,7 +409,6 @@ export const searchSkilledWorkers = async (req, res) => {
   }
 };
 
-// In your skilledProfiles controller
 export const getCompleteSkilledProfile = async (req, res) => {
   try {
     // Get basic profile with hourly_rate
@@ -344,7 +443,7 @@ export const getCompleteSkilledProfile = async (req, res) => {
       gov_id: !!profile.gov_id,
       certificate: !!profile.certificate,
       profile_image: !!profile.profile_image,
-      pricing: !!profile.hourly_rate, // Add this
+      pricing: !!profile.hourly_rate,
     };
 
     const totalFields = Object.keys(completion).length;
@@ -451,8 +550,6 @@ export const updateContactInfo = async (req, res) => {
   }
 };
 
-// Get public profile for clients to view
-// Get public profile for clients to view
 export const getPublicSkilledProfile = async (req, res) => {
   try {
     const { id } = req.params; // skilled_id
@@ -495,7 +592,7 @@ export const getPublicSkilledProfile = async (req, res) => {
 
     const profile = profileRows[0];
 
-    // Get the worker's skills - MAKE SURE THIS QUERY IS CORRECT
+    // Get the worker's skills
     const [skills] = await pool.query(
       `SELECT s.skill_id, s.name 
        FROM skills s
@@ -616,13 +713,13 @@ export const getPublicSkilledProfile = async (req, res) => {
     res.json({
       profile: {
         ...profile,
-        skills: skills, // Make sure skills are included
+        skills: skills,
         fullName: `${profile.firstName} ${profile.lastName}`,
         distance: distance ? parseFloat(distance).toFixed(1) : null,
         average_rating: stats.average_rating,
         total_ratings: stats.total_ratings,
         hourly_rate: profile.hourly_rate || 500,
-        skill_name: primarySkill, // Add this for the main skill display
+        skill_name: primarySkill,
       },
       ratings: {
         stats,
@@ -635,7 +732,6 @@ export const getPublicSkilledProfile = async (req, res) => {
   }
 };
 
-// Update pricing
 export const updatePricing = async (req, res) => {
   try {
     const { hourly_rate } = req.body;
@@ -664,7 +760,6 @@ export const updatePricing = async (req, res) => {
   }
 };
 
-// Get pricing
 export const getPricing = async (req, res) => {
   try {
     const profile = await ensureProfileExists(req.user.id);

@@ -30,7 +30,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const corsOption = {
-  origin: "http://localhost:5173" || "http://10.11.24.134:5173/",
+  origin: process.env.FRONTEND_URL,
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true, // ✅ lowercase 'c'
 };
@@ -98,6 +98,7 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log("http://192.191.5.169:3000");
   console.log(`🔗 Facebook login: http://localhost:${PORT}/auth/facebook`);
   console.log(`📁 Uploads folder: ${path.join(__dirname, "uploads")}`);
 });
