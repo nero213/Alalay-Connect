@@ -3,6 +3,7 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { registerUsers } from '@/api/userService'
 import { getCities, getBarangays } from '@/utils/locationService'
+import { getCoordinatesFromLocation } from '@/utils/locationCoordinates'
 
 const router = useRouter()
 
@@ -15,7 +16,9 @@ const registerForms = reactive({
   confirmPassword: '',
   phone: '',
   city: '',
-  barangay: ''
+  barangay: '',
+  latitude: null,
+  longitude: null
 })
 
 // Validation errors
@@ -38,6 +41,10 @@ const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const acceptedTerms = ref(false)
 
+// Modal states
+const showTermsModal = ref(false)
+const showPrivacyModal = ref(false)
+
 // Available cities from location service
 const cities = getCities()
 
@@ -47,9 +54,29 @@ const availableBarangays = computed(() => {
   return getBarangays(registerForms.city)
 })
 
-// Reset barangay when city changes
+// Update coordinates based on selected city/barangay
+const updateCoordinates = () => {
+  if (registerForms.city) {
+    const coords = getCoordinatesFromLocation(registerForms.city, registerForms.barangay)
+    if (coords && coords.lat && coords.lng) {
+      registerForms.latitude = coords.lat
+      registerForms.longitude = coords.lng
+      console.log('Coordinates found:', coords)
+    }
+  }
+}
+
+// Reset barangay when city changes and update coordinates
 const onCityChange = () => {
   registerForms.barangay = ''
+  updateCoordinates()
+  validateField('city')
+  validateField('barangay')
+}
+
+// Update coordinates when barangay changes
+const onBarangayChange = () => {
+  updateCoordinates()
   validateField('barangay')
 }
 
@@ -178,7 +205,6 @@ const validateField = (field) => {
       } else {
         errors.password = ''
       }
-      // Also validate confirm password when password changes
       if (registerForms.confirmPassword) {
         validateField('confirmPassword')
       }
@@ -238,6 +264,26 @@ const handleInput = (field) => {
   validateField(field)
 }
 
+// Open modals
+const openTermsModal = (e) => {
+  e.preventDefault()
+  showTermsModal.value = true
+}
+
+const openPrivacyModal = (e) => {
+  e.preventDefault()
+  showPrivacyModal.value = true
+}
+
+// Close modals
+const closeTermsModal = () => {
+  showTermsModal.value = false
+}
+
+const closePrivacyModal = () => {
+  showPrivacyModal.value = false
+}
+
 // Submit form
 const userRegister = async () => {
   // Validate all fields
@@ -258,36 +304,37 @@ const userRegister = async () => {
   loading.value = true
 
   try {
-    // Clean phone number (remove any non-digits and ensure it starts with 0)
+    // Clean phone number
     const cleanPhone = registerForms.phone.replace(/\D/g, '')
     const formattedPhone = cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`
 
-    const res = await registerUsers({
+    // Prepare registration data with coordinates
+    const registrationData = {
       email: registerForms.email.trim().toLowerCase(),
       firstName: registerForms.firstName.trim(),
       lastName: registerForms.lastName.trim(),
       password: registerForms.password,
       phone: formattedPhone,
       city: registerForms.city,
-      barangay: registerForms.barangay
-    })
+      barangay: registerForms.barangay,
+      latitude: registerForms.latitude,
+      longitude: registerForms.longitude
+    }
 
-    // Check if verification is required
+    console.log('Registration data:', registrationData)
+
+    const res = await registerUsers(registrationData)
+
     if (res.data.requiresVerification) {
-      // Redirect to verification page with email
       router.push({
         path: '/verify-email',
         query: { email: registerForms.email.trim().toLowerCase() },
       })
     } else {
-      // If no verification required (shouldn't happen with our setup)
       successMessage.value = res.data.message || 'Registration successful! Redirecting to login...'
-
-      // Clear form
       Object.keys(registerForms).forEach((k) => (registerForms[k] = ''))
       acceptedTerms.value = false
 
-      // Redirect to login after success
       setTimeout(() => {
         router.push('/login')
       }, 2000)
@@ -356,7 +403,7 @@ const formatName = (field) => {
         <div class="input-group" :class="{ 'has-error': errors.barangay }">
           <label for="barangay">Barangay</label>
           <select id="barangay" v-model="registerForms.barangay" class="location-select"
-            :disabled="!registerForms.city || loading" @blur="validateField('barangay')">
+            :disabled="!registerForms.city || loading" @change="onBarangayChange" @blur="validateField('barangay')">
             <option value="">Select your barangay</option>
             <option v-for="barangay in availableBarangays" :key="barangay" :value="barangay">
               {{ barangay }}
@@ -447,8 +494,8 @@ const formatName = (field) => {
         <div class="terms-group">
           <label class="checkbox-label">
             <input type="checkbox" v-model="acceptedTerms" :disabled="loading" />
-            <span>I accept the <a href="#" @click.prevent>Terms and Conditions</a> and
-              <a href="#" @click.prevent>Privacy Policy</a></span>
+            <span>I accept the <a href="#" @click.prevent="openTermsModal">Terms and Conditions</a> and
+              <a href="#" @click.prevent="openPrivacyModal">Privacy Policy</a></span>
           </label>
         </div>
 
@@ -473,10 +520,244 @@ const formatName = (field) => {
         </transition>
       </form>
     </div>
+
+    <!-- Terms and Conditions Modal -->
+    <div v-if="showTermsModal" class="modal-overlay" @click="closeTermsModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Terms and Conditions</h3>
+          <button @click="closeTermsModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="terms-content">
+            <h4>1. Acceptance of Terms</h4>
+            <p>By registering for Alalay Connect, you agree to be bound by these Terms and Conditions.</p>
+
+            <h4>2. User Accounts</h4>
+            <p>You are responsible for maintaining the confidentiality of your account credentials. You agree to accept responsibility for all activities that occur under your account.</p>
+
+            <h4>3. User Conduct</h4>
+            <p>You agree to use the platform only for lawful purposes and in a way that does not infringe the rights of, restrict or inhibit anyone else's use and enjoyment of the platform.</p>
+
+            <h4>4. Bookings and Payments</h4>
+            <p>All bookings made through the platform are binding. Users agree to honor their commitments and pay for services rendered.</p>
+
+            <h4>5. Cancellation Policy</h4>
+            <p>Cancellations must be made at least 24 hours before the scheduled service. Late cancellations may incur fees.</p>
+
+            <h4>6. Ratings and Reviews</h4>
+            <p>Users agree to provide honest and constructive feedback. False or malicious reviews may result in account suspension.</p>
+
+            <h4>7. Limitation of Liability</h4>
+            <p>Alalay Connect acts as a platform connecting users. We are not liable for any damages arising from the use of our services.</p>
+
+            <h4>8. Modifications</h4>
+            <p>We reserve the right to modify these terms at any time. Continued use of the platform constitutes acceptance of modified terms.</p>
+
+            <h4>9. Termination</h4>
+            <p>We reserve the right to terminate accounts that violate these terms or engage in prohibited activities.</p>
+
+            <h4>10. Governing Law</h4>
+            <p>These terms shall be governed by the laws of the Republic of the Philippines.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeTermsModal" class="btn-primary">I Understand</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Privacy Policy Modal -->
+    <div v-if="showPrivacyModal" class="modal-overlay" @click="closePrivacyModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Privacy Policy</h3>
+          <button @click="closePrivacyModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="privacy-content">
+            <h4>Information We Collect</h4>
+            <p>We collect personal information including name, email address, phone number, location data, and transaction history.</p>
+
+            <h4>How We Use Your Information</h4>
+            <p>Your information is used to:</p>
+            <ul>
+              <li>Create and manage your account</li>
+              <li>Facilitate bookings and payments</li>
+              <li>Communicate with you about your bookings</li>
+              <li>Improve our services</li>
+              <li>Send important updates and notifications</li>
+            </ul>
+
+            <h4>Data Sharing</h4>
+            <p>We share your information with:</p>
+            <ul>
+              <li>Skilled workers when you book their services</li>
+              <li>Payment processors for transactions</li>
+              <li>Legal authorities when required by law</li>
+            </ul>
+
+            <h4>Data Security</h4>
+            <p>We implement industry-standard security measures to protect your data. However, no method of transmission over the internet is 100% secure.</p>
+
+            <h4>Your Rights</h4>
+            <p>You have the right to access, correct, or delete your personal information. Contact us to exercise these rights.</p>
+
+            <h4>Cookies</h4>
+            <p>We use cookies to enhance your browsing experience and analyze site traffic.</p>
+
+            <h4>Changes to Privacy Policy</h4>
+            <p>We may update this privacy policy periodically. Continued use of the platform indicates acceptance of changes.</p>
+
+            <h4>Contact Us</h4>
+            <p>If you have questions about this privacy policy, contact us at privacy@alalayconnect.com</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closePrivacyModal" class="btn-primary">I Understand</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Add modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.3rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #64748b;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.close-btn:hover {
+  background: #f1f5f9;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.terms-content,
+.privacy-content {
+  color: #334155;
+  line-height: 1.6;
+}
+
+.terms-content h4,
+.privacy-content h4 {
+  color: #1e293b;
+  margin: 1rem 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.terms-content p,
+.privacy-content p {
+  margin-bottom: 1rem;
+}
+
+.terms-content ul,
+.privacy-content ul {
+  margin: 0.5rem 0 1rem 1.5rem;
+  padding-left: 0;
+}
+
+.terms-content li,
+.privacy-content li {
+  margin-bottom: 0.25rem;
+}
+
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Keep all your existing styles below */
 .register-container {
   display: flex;
   justify-content: center;
@@ -805,7 +1086,6 @@ small.strong {
   text-decoration: underline;
 }
 
-/* Spinner */
 .spinner {
   display: inline-block;
   width: 20px;
@@ -824,7 +1104,6 @@ small.strong {
   }
 }
 
-/* Messages */
 .success-message,
 .error-message {
   margin-top: 20px;
@@ -846,13 +1125,11 @@ small.strong {
   border: 1px solid #ffccc7;
 }
 
-/* Animations */
 @keyframes slideIn {
   from {
     opacity: 0;
     transform: translateY(-10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -864,7 +1141,6 @@ small.strong {
     opacity: 0;
     transform: translateY(-20px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -881,10 +1157,13 @@ small.strong {
   opacity: 0;
 }
 
-/* Responsive */
 @media (max-width: 480px) {
   .register-box {
     padding: 30px 20px;
+  }
+
+  .modal-content {
+    width: 95%;
   }
 }
 </style>

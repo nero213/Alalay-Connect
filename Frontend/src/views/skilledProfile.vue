@@ -323,7 +323,7 @@ onMounted(() => {
                   <span class="status-icon" v-if="profile.verification_status === 'approved'">✓</span>
                   <span class="status-icon" v-else-if="profile.verification_status === 'pending'">⏳</span>
                   <span class="status-icon" v-else>!</span>
-                  {{ profile.verification_status === 'approved' ? 'Verified Professional' :
+                  {{ profile.verification_status === 'approved' ? 'Verified Skilled Worker' :
                     profile.verification_status === 'pending' ? 'Verification Pending' : 'Not Verified' }}
                 </span>
               </div>

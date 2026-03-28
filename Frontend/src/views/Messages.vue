@@ -8,6 +8,7 @@ import {
   sendMessage as apiSendMessage,
   markMessagesAsRead,
   getUnreadMessageCount,
+  getOrCreateConversationWithUser,
   getOrCreateConversation,
 } from '@/api/messageService'
 
@@ -123,6 +124,34 @@ const loadConversations = async () => {
     console.error('Error loading conversations:', error)
   } finally {
     loadingConversations.value = false
+  }
+}
+
+const createOrGetConversationWithUser = async (userId) => {
+  try {
+    creatingNewChat.value = true
+    const response = await getOrCreateConversationWithUser(userId)
+    const conversation = response.conversation
+
+    const existing = conversations.value.find(
+      (c) => c.conversation_id === conversation.conversation_id,
+    )
+    if (!existing) {
+      conversations.value.unshift(conversation)
+    }
+
+    activeConversation.value = conversation
+    await loadMessages()
+    await markAsRead()
+    await nextTick()
+    scrollToBottom()
+
+    router.replace('/messages')
+  } catch (error) {
+    console.error('Error creating conversation:', error)
+    alert('Unable to start conversation. Please try again.')
+  } finally {
+    creatingNewChat.value = false
   }
 }
 
@@ -391,7 +420,7 @@ const startPolling = () => {
 
 // Check for skilled ID in query params on mount
 onMounted(async () => {
-  getCurrentUser()
+  await getCurrentUser()
   await loadConversations()
 
   const conversationId = route.query.conversation
@@ -410,12 +439,14 @@ onMounted(async () => {
 
   const skilledUserId = route.query.skilled
   if (skilledUserId && currentUser.value) {
+    // This is for messaging a skilled worker
     await createOrGetConversation(skilledUserId)
   }
 
-  const clientId = route.query.client
-  if (clientId && currentUser.value) {
-    await createOrGetConversation(clientId)
+  const residentUserId = route.query.user
+  if (residentUserId && currentUser.value) {
+    // This is for messaging a resident - use the new endpoint
+    await createOrGetConversationWithUser(residentUserId)
   }
 
   window.addEventListener('resize', handleResize)

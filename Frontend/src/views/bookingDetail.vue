@@ -627,7 +627,8 @@ const availableSlots = ref([])
 // Min date for reschedule (today)
 const minDate = new Date().toISOString().split('T')[0]
 
-const baseURL = import.meta.env.VITE_BASE_URL
+const baseURL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000'
+
 // Helper function to get image URL
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '/default-avatar.png'
@@ -672,9 +673,9 @@ const otherPartyData = computed(() => {
   if (currentUserId === booking.value.client_id) {
     console.log('Case: User is CLIENT')
     // Other party is the skilled worker (the one being booked)
-    // This is always a skilled worker profile
     return {
       id: booking.value.skilled_id,
+      user_id: booking.value.skilled_user_id,
       firstName: booking.value.skilled_firstName,
       lastName: booking.value.skilled_lastName,
       image: booking.value.skilled_image,
@@ -690,20 +691,17 @@ const otherPartyData = computed(() => {
   // Case 2: Current user is the skilled worker (the one being booked)
   else if (currentUserId === booking.value.skilled_user_id) {
     console.log('Case: User is SKILLED WORKER (being booked)')
-    // Other party is the client
-    // Determine if the client is a resident or a skilled worker
-
-    // Check if the client is a skilled worker (has client_skilled_id)
     const isClientSkilled = booking.value.client_role === 'skilled'
 
     console.log('Is client a skilled worker?', isClientSkilled)
     console.log('Client skilled_id:', booking.value.client_skilled_id)
 
     if (isClientSkilled && booking.value.client_skilled_id) {
-      // Client is also a skilled worker - use their skilled image from skilled_profiles
-      console.log('Client is a skilled worker, using skilled image')
+      // Client is also a skilled worker
+      console.log('Client is a skilled worker')
       return {
         id: booking.value.client_skilled_id,
+        user_id: booking.value.client_id,
         firstName: booking.value.client_firstName,
         lastName: booking.value.client_lastName,
         image: booking.value.client_skilled_image || booking.value.client_image,
@@ -716,10 +714,11 @@ const otherPartyData = computed(() => {
         profileLink: `/skilled-profile/${booking.value.client_skilled_id}`,
       }
     } else {
-      // Client is a resident - use user image from users table
-      console.log('Client is a resident, using user image')
+      // Client is a resident
+      console.log('Client is a resident')
       return {
         id: booking.value.client_id,
+        user_id: booking.value.client_id,
         firstName: booking.value.client_firstName,
         lastName: booking.value.client_lastName,
         image: booking.value.client_image,
@@ -940,14 +939,28 @@ const viewOtherPartyProfile = () => {
   router.push(otherPartyProfileLink.value)
 }
 
-// Contact other party
+// Contact other party - FIXED: Uses correct user_id for messaging
 const contactOtherParty = () => {
   if (!otherPartyData.value) return
 
+  console.log('Contacting other party:', {
+    profileType: otherPartyData.value.profileType,
+    userId: otherPartyData.value.user_id,
+    name: otherPartyData.value.firstName,
+  })
+
+  // If the other party is a skilled worker
   if (otherPartyData.value.profileType === 'skilled') {
-    router.push(`/messages?skilled=${otherPartyData.value.id}`)
-  } else {
-    router.push(`/messages?user=${otherPartyData.value.id}`)
+    // Use the user_id from the booking for the skilled worker
+    const targetUserId = otherPartyData.value.user_id
+    console.log('Messaging skilled worker with user_id:', targetUserId)
+    router.push(`/messages?skilled=${targetUserId}`)
+  }
+  // If the other party is a resident
+  else {
+    const targetUserId = otherPartyData.value.user_id
+    console.log('Messaging resident with user_id:', targetUserId)
+    router.push(`/messages?user=${targetUserId}`)
   }
 }
 
@@ -985,7 +998,6 @@ onMounted(async () => {
   stroke: white;
 }
 
-/* Keep all your existing styles from the original component */
 .booking-detail-page {
   min-height: 100vh;
   background: #f8fafc;
@@ -1035,7 +1047,6 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* Loading State */
 .loading-state {
   text-align: center;
   padding: 3rem;
@@ -1057,7 +1068,6 @@ onMounted(async () => {
   }
 }
 
-/* Error State */
 .error-state {
   text-align: center;
   padding: 3rem;
@@ -1088,7 +1098,6 @@ onMounted(async () => {
   transform: translateY(-2px);
 }
 
-/* Booking Detail Card */
 .booking-detail-card {
   background: white;
   border-radius: 24px;
@@ -1096,7 +1105,6 @@ onMounted(async () => {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
 }
 
-/* Status Banner */
 .status-banner {
   padding: 1.5rem;
   display: flex;
@@ -1134,7 +1142,6 @@ onMounted(async () => {
   text-transform: capitalize;
 }
 
-/* Detail Grid */
 .detail-grid {
   padding: 2rem;
   display: grid;
@@ -1191,7 +1198,6 @@ onMounted(async () => {
   color: #1e293b;
 }
 
-/* Professional Detail */
 .professional-detail {
   display: flex;
   gap: 1.5rem;
@@ -1228,7 +1234,6 @@ onMounted(async () => {
   color: #fbbf24;
 }
 
-/* Payment Section */
 .payment-summary {
   background: white;
   padding: 1rem;
@@ -1269,7 +1274,6 @@ onMounted(async () => {
   color: #065f46;
 }
 
-/* Timeline */
 .timeline {
   display: flex;
   flex-direction: column;
@@ -1299,7 +1303,6 @@ onMounted(async () => {
   font-size: 0.9rem;
 }
 
-/* Action Buttons */
 .detail-actions {
   display: flex;
   gap: 1rem;
@@ -1373,7 +1376,6 @@ onMounted(async () => {
   box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
 }
 
-/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1647,7 +1649,6 @@ onMounted(async () => {
   animation: spin 1s ease-in-out infinite;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .detail-grid {
     grid-template-columns: 1fr;

@@ -146,29 +146,28 @@ const handlePaste = (event) => {
 const verifyCode = async () => {
   const code = codeDigits.value.join('')
 
+  // Normalize email before sending
+  const normalizedEmail = email.value.trim().toLowerCase()
+
+  console.log('Verifying with:', {
+    email: normalizedEmail,
+    code: code,
+  })
+
   loading.value = true
   error.value = ''
 
   try {
     const response = await API.post('/auth/verify-email', {
-      email: email.value,
+      email: normalizedEmail,
       code: code,
     })
 
     verified.value = true
-
-    // Start countdown to login page
-    const timer = setInterval(() => {
-      countdown.value--
-      if (countdown.value <= 0) {
-        clearInterval(timer)
-        router.push('/login')
-      }
-    }, 1000)
+    // ... rest of code
   } catch (err) {
+    console.error('Verification error:', err.response?.data)
     error.value = err.response?.data?.message || 'Verification failed. Please try again.'
-
-    // Clear inputs on error
     codeDigits.value = ['', '', '', '', '', '']
     digitInputs.value[0].focus()
   } finally {
@@ -181,11 +180,13 @@ const resendCode = async () => {
   error.value = ''
 
   try {
+    // Normalize email before sending
+    const normalizedEmail = email.value.trim().toLowerCase()
+
     await API.post('/auth/resend-verification', {
-      email: email.value,
+      email: normalizedEmail,
     })
 
-    // Start 60 second timer
     resendTimer.value = 60
     const timer = setInterval(() => {
       resendTimer.value--
@@ -194,12 +195,8 @@ const resendCode = async () => {
       }
     }, 1000)
 
-    // Clear inputs
     codeDigits.value = ['', '', '', '', '', '']
     digitInputs.value[0].focus()
-
-    // Show success message
-    error.value = '' // Clear any errors
   } catch (err) {
     error.value = err.response?.data?.message || 'Failed to resend code. Please try again.'
   } finally {

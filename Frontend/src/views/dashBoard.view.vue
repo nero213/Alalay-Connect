@@ -12,6 +12,10 @@ const selectedCategory = ref('all')
 const userLocation = ref({ lat: null, lng: null })
 const categories = ref([])
 
+// VMUF San Carlos City coordinates (Pangasinan)
+const DEFAULT_LATITUDE = 15.928
+const DEFAULT_LONGITUDE = 120.3489
+
 // Quick booking modal
 const showQuickBook = ref(false)
 const selectedWorker = ref(null)
@@ -131,7 +135,7 @@ const loadCategories = async () => {
   }
 }
 
-// Get user location
+// Get user location with fallback to VMUF San Carlos City
 const getUserLocation = () => {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
@@ -140,22 +144,30 @@ const getUserLocation = () => {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         }
+        console.log('📍 Location detected:', userLocation.value)
         loadWorkers()
       },
       (error) => {
         console.error('Error getting location:', error)
+        // Fallback to VMUF San Carlos City coordinates
         userLocation.value = {
-          lat: 14.5995,
-          lng: 120.9842,
+          lat: DEFAULT_LATITUDE,
+          lng: DEFAULT_LONGITUDE,
         }
+        console.log('📍 Using fallback location (VMUF San Carlos City):', userLocation.value)
         loadWorkers()
       },
     )
   } else {
+    // Geolocation not supported, use fallback
     userLocation.value = {
-      lat: 14.5995,
-      lng: 120.9842,
+      lat: DEFAULT_LATITUDE,
+      lng: DEFAULT_LONGITUDE,
     }
+    console.log(
+      '📍 Geolocation not supported, using fallback (VMUF San Carlos City):',
+      userLocation.value,
+    )
     loadWorkers()
   }
 }
@@ -175,6 +187,7 @@ const loadWorkers = async () => {
       skillName,
     )
     workers.value = data
+    console.log(`✅ Loaded ${data.length} workers`)
   } catch (error) {
     console.error('Error loading workers:', error)
   } finally {
@@ -183,7 +196,6 @@ const loadWorkers = async () => {
 }
 
 // Filter workers by search query
-// frontend/src/views/dashBoard.view.vue
 const filteredWorkers = computed(() => {
   if (!searchQuery.value.trim()) return workers.value
 
@@ -200,7 +212,7 @@ const filteredWorkers = computed(() => {
     if (worker.barangay?.toLowerCase().includes(query)) return true
     if (worker.city?.toLowerCase().includes(query)) return true
 
-    // Check skills - IMPORTANT FIX
+    // Check skills
     if (worker.skills && Array.isArray(worker.skills)) {
       if (worker.skills.some((skill) => skill.name?.toLowerCase().includes(query))) return true
     }
@@ -599,7 +611,7 @@ onMounted(() => {
           <h3 class="empty-title">No professionals found</h3>
           <p class="empty-message">Try adjusting your search or filters</p>
           <button
-            @click="    searchQuery = ''; selectedCategory = 'all'"class="reset-button"  >
+            @click=" searchQuery = ''; selectedCategory = 'all'" class="reset-button">
             Reset Filters
           </button>
         </div>
@@ -762,6 +774,40 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Keep all existing styles - they remain unchanged */
+/* ... (all your existing styles remain exactly the same) ... */
+
+.estimated-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+.total-amount {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.preview-price {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #10b981;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.price-icon {
+  display: inline-flex;
+  align-items: center;
+}
 /* Keep all existing styles - they remain unchanged */
 .estimated-total {
   display: flex;

@@ -8,7 +8,15 @@ const getAuthHeader = () => {
     },
   }
 }
-
+export const getOrCreateConversationWithUser = async (userId) => {
+  try {
+    const response = await API.get(`/messages/conversations/user/${userId}`, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error creating conversation with user:', error)
+    throw error
+  }
+}
 // Get or create conversation with a skilled worker
 export const getOrCreateConversation = async (skilledId) => {
   try {
