@@ -4,7 +4,6 @@ export const registerValidators = [
   body("email")
     .isEmail()
     .notEmpty()
-    .normalizeEmail()
     .withMessage("email is required"),
   body("firstName").notEmpty().withMessage("firstName is required"),
   body("lastName").notEmpty().withMessage("lastName is required"),

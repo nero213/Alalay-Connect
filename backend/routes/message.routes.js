@@ -1,8 +1,10 @@
+// backend/routes/message.routes.js
 import { Router } from "express";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import upload from "../middleware/upload.middleware.js";
 import {
   getOrCreateConversation,
+  getOrCreateConversationWithUser,
   getUserConversations,
   getMessages,
   sendMessage,
@@ -19,6 +21,7 @@ router.use(verifyToken);
 // Conversations
 router.get("/conversations", getUserConversations);
 router.get("/conversations/:skilled_id", getOrCreateConversation);
+router.get("/conversations/user/:user_id", getOrCreateConversationWithUser); // Add this for residents
 router.get("/conversations/:conversation_id/messages", getMessages);
 router.put("/conversations/:conversation_id/read", markAsRead);
 

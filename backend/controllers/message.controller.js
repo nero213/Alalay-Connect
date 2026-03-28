@@ -7,6 +7,109 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+export const getOrCreateConversationWithUser = async (req, res) => {
+  try {
+    const current_user_id = req.user.id;
+    const { user_id } = req.params; // This is the user_id of the other person (resident or skilled)
+
+    console.log(
+      "Getting conversation with user:",
+      current_user_id,
+      "and",
+      user_id,
+    );
+
+    // Check if current user is a skilled worker
+    const [currentUser] = await pool.query(
+      "SELECT role FROM users WHERE user_id = ?",
+      [current_user_id],
+    );
+
+    const [otherUser] = await pool.query(
+      "SELECT role FROM users WHERE user_id = ?",
+      [user_id],
+    );
+
+    if (!currentUser.length || !otherUser.length) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    let client_id, skilled_worker_id;
+
+    // Determine who is the client and who is the skilled worker
+    if (currentUser[0].role === "resident") {
+      // Current user is resident (client)
+      client_id = current_user_id;
+
+      // Get the skilled_id from the skilled_profiles table
+      const [skilledProfile] = await pool.query(
+        "SELECT skilled_id FROM skilled_profiles WHERE user_id = ?",
+        [user_id],
+      );
+
+      if (skilledProfile.length === 0) {
+        return res.status(404).json({ message: "Skilled worker not found" });
+      }
+      skilled_worker_id = skilledProfile[0].skilled_id;
+    } else {
+      // Current user is skilled worker
+      // Get current user's skilled_id
+      const [currentSkilled] = await pool.query(
+        "SELECT skilled_id FROM skilled_profiles WHERE user_id = ?",
+        [current_user_id],
+      );
+
+      if (currentSkilled.length === 0) {
+        return res.status(404).json({ message: "Skilled profile not found" });
+      }
+      skilled_worker_id = currentSkilled[0].skilled_id;
+      client_id = user_id; // The other user is the resident/client
+    }
+
+    // Check if conversation exists
+    let [conversation] = await pool.query(
+      `SELECT c.*, 
+              u.firstName as client_firstName, u.lastName as client_lastName,
+              sp.firstName as skilled_firstName, sp.lastName as skilled_lastName,
+              sp.profile_image as skilled_image,
+              sp.user_id as skilled_user_id
+       FROM conversations c
+       JOIN users u ON u.user_id = c.client_id
+       JOIN skilled_profiles sp ON sp.skilled_id = c.skilled_id
+       WHERE c.client_id = ? AND c.skilled_id = ?`,
+      [client_id, skilled_worker_id],
+    );
+
+    if (conversation.length === 0) {
+      // Create new conversation
+      const conversation_uuid = uuidv4();
+      const [result] = await pool.query(
+        `INSERT INTO conversations (conversation_uuid, client_id, skilled_id)
+         VALUES (?, ?, ?)`,
+        [conversation_uuid, client_id, skilled_worker_id],
+      );
+
+      // Get the new conversation
+      [conversation] = await pool.query(
+        `SELECT c.*, 
+                u.firstName as client_firstName, u.lastName as client_lastName,
+                sp.firstName as skilled_firstName, sp.lastName as skilled_lastName,
+                sp.profile_image as skilled_image,
+                sp.user_id as skilled_user_id
+         FROM conversations c
+         JOIN users u ON u.user_id = c.client_id
+         JOIN skilled_profiles sp ON sp.skilled_id = c.skilled_id
+         WHERE c.conversation_id = ?`,
+        [result.insertId],
+      );
+    }
+
+    res.json({ conversation: conversation[0] });
+  } catch (error) {
+    console.error("Error getting conversation:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
 // Get or create conversation between client and skilled worker
 export const getOrCreateConversation = async (req, res) => {
   try {
@@ -226,6 +329,7 @@ export const sendMessage = async (req, res) => {
         }
         skilled_worker_id = skilled[0].skilled_id;
       } else {
+        // Sender is skilled worker
         const [skilled] = await pool.query(
           "SELECT skilled_id FROM skilled_profiles WHERE user_id = ?",
           [sender_id],
@@ -278,6 +382,12 @@ export const sendMessage = async (req, res) => {
         finalReceiverId = conversation[0].client_id;
       }
     }
+
+    console.log("Message receiver determined:", {
+      finalReceiverId,
+      sender_id,
+      conversation: conversation[0],
+    });
 
     // Process file upload
     let fileUrl = null;
@@ -339,7 +449,7 @@ export const sendMessage = async (req, res) => {
       [result.insertId],
     );
 
-    // Create notification for receiver
+    // Create notification for receiver (FIX: use finalReceiverId, not sender)
     const [sender] = await pool.query(
       "SELECT firstName, lastName FROM users WHERE user_id = ?",
       [sender_id],
@@ -354,15 +464,22 @@ export const sendMessage = async (req, res) => {
       notificationMessage = `💬 ${sender[0].firstName}: ${messageText.substring(0, 50)}${messageText.length > 50 ? "..." : ""}`;
     }
 
+    console.log("Creating notification for receiver:", {
+      receiver_id: finalReceiverId,
+      sender_name: sender[0].firstName,
+      message: notificationMessage,
+    });
+
     await pool.query(
       `INSERT INTO notifications (user_id, type, title, message, data)
        VALUES (?, 'message', 'New Message', ?, ?)`,
       [
-        finalReceiverId,
+        finalReceiverId, // Send notification to the receiver, not the sender
         notificationMessage,
         JSON.stringify({
           conversation_id: conversationId,
-          sender_id,
+          sender_id: sender_id,
+          sender_name: `${sender[0].firstName} ${sender[0].lastName}`,
           hasFile: !!file,
         }),
       ],
