@@ -31,8 +31,15 @@ import AdminHelpCenter from '@/views/admin/AdminHelpCenter.vue'
 import AdminAuditLogs from '@/views/admin/AdminAuditLogs.vue'
 import UserSettings from '@/views/UserSettings.vue'
 import UserProfilePrivate from '@/views/UserProfilePrivate.vue'
+import DevelopmentPlaceholder from '@/views/DevelopmentPlaceholder.vue'
 
 const routes = [
+  {
+    path: '/development',
+    name: 'DevelopmentPlaceholder',
+    component: DevelopmentPlaceholder,
+    meta: { requiresAuth: true },
+  },
   {
     path: '/login',
     name: 'login',
