@@ -78,7 +78,7 @@ const redirectBasedOnRole = (user) => {
       router.push('/SkilledProfile')
       break
     case 'resident':
-      router.push('/userProfile')
+      router.push('/dashboard')
       break
     case 'admin':
       router.push('/admin/dashboard')

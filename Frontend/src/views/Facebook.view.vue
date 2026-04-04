@@ -9,7 +9,7 @@ onMounted(() => {
     const token = route.query.token;
     if (token) {
         localStorage.setItem('token', token);
-        router.push('/becomeSkilled');
+        router.push('/dashboard');
     }
     else {
         router.push('/login')

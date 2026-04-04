@@ -103,6 +103,40 @@ export const uploadUserProfileImage = async (file) => {
   }
 }
 
+// frontend/src/api/userService.js
+export const getUserRecentActivity = async (limit = 5) => {
+  try {
+    const response = await API.get(`/user/recent-activity?limit=${limit}`, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching recent activity:', error)
+    throw error
+  }
+}
+
+export const getUserStats = async () => {
+  try {
+    const response = await API.get('/user/stats', getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching user stats:', error)
+    throw error
+  }
+}
+
+export const getUserActivityLogs = async (page = 1, limit = 20) => {
+  try {
+    const response = await API.get(
+      `/user/activity-logs?page=${page}&limit=${limit}`,
+      getAuthHeader(),
+    )
+    return response.data
+  } catch (error) {
+    console.error('Error fetching activity logs:', error)
+    throw error
+  }
+}
+
 // Request password reset
 export const requestPasswordReset = async (email) => {
   try {

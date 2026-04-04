@@ -28,11 +28,26 @@ import ResetPassword from '@/auth/ResetPassword.vue'
 import ResidentPublicProfile from '@/views/ResidentPublicProfile.vue'
 import HelpCenter from '@/views/HelpCenter.vue'
 import AdminHelpCenter from '@/views/admin/AdminHelpCenter.vue'
+import AdminAuditLogs from '@/views/admin/AdminAuditLogs.vue'
+import UserSettings from '@/views/UserSettings.vue'
+import UserProfilePrivate from '@/views/UserProfilePrivate.vue'
+
 const routes = [
   {
     path: '/login',
     name: 'login',
     component: loginComponents,
+  },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: UserSettings,
+  },
+  {
+    path: '/my-profile',
+    name: 'myProfile',
+    component: UserProfilePrivate,
+    meta: { requiresAuth: true },
   },
   {
     path: '/profile',
@@ -200,6 +215,12 @@ const routes = [
         name: 'AdminReports',
         component: AdminReports,
         meta: { requiresAuth: true, requiresAdmin: true },
+      },
+      {
+        path: 'audit-logs',
+        name: 'AdminAuditLogs',
+        component: AdminAuditLogs,
+        meta: { requiresAuth: true, role: 'admin' },
       },
     ],
   },

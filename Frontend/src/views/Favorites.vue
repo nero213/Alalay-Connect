@@ -100,7 +100,7 @@ const showRemoveModal = ref(false)
 const workerToRemove = ref(null)
 
 
-const baseURL = import.meta.env.BASE_VITE_URL
+const baseURL = import.meta.env.VITE_BASE_URL
 // Get image URL
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '/default-avatar.png'

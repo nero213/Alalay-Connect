@@ -165,3 +165,28 @@ export const getAdminProfile = async () => {
     throw error
   }
 }
+// frontend/src/api/adminService.js
+// Add these functions to your existing adminService.js
+
+// Get audit logs
+export const getAuditLogs = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams(params).toString()
+    const response = await API.get(`/admin/audit-logs?${queryParams}`, getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching audit logs:', error)
+    throw error
+  }
+}
+
+// Get audit statistics
+export const getAuditStats = async () => {
+  try {
+    const response = await API.get('/admin/audit-stats', getAuthHeader())
+    return response.data
+  } catch (error) {
+    console.error('Error fetching audit stats:', error)
+    throw error
+  }
+}
