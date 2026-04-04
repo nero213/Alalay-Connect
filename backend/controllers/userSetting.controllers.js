@@ -105,6 +105,158 @@ export const updateUserProfile = async (req, res) => {
   }
 };
 
+// backend/controllers/user.controller.js
+export const getUserRecentActivity = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { limit = 5 } = req.query;
+
+    const [activities] = await pool.query(
+      `SELECT 
+        b.booking_id as id,
+        'booking' as type,
+        'New Booking' as title,
+        b.created_at
+       FROM bookings b
+       WHERE b.client_id = ?
+       UNION ALL
+       SELECT 
+        r.rating_id as id,
+        'review' as type,
+        'New Review' as title,
+        r.created_at
+       FROM ratings r
+       WHERE r.client_id = ?
+       ORDER BY created_at DESC
+       LIMIT ?`,
+      [user_id, user_id, parseInt(limit)],
+    );
+
+    res.json({ activities });
+  } catch (error) {
+    console.error("Error fetching recent activity:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+// backend/controllers/user.controller.js
+// Add these functions to your existing user controller
+
+// Get user activity logs
+export const getUserActivityLogs = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Get bookings activity
+    const [bookings] = await pool.query(
+      `SELECT 
+        b.booking_id as id,
+        'booking' as type,
+        'Booking Created' as title,
+        CONCAT('You booked ', sp.firstName, ' ', sp.lastName) as description,
+        JSON_OBJECT(
+          'booking_id', b.booking_id,
+          'skilled_name', CONCAT(sp.firstName, ' ', sp.lastName),
+          'service_date', b.service_date,
+          'duration', b.duration,
+          'amount', b.total_amount,
+          'status', b.status
+        ) as details,
+        b.created_at
+       FROM bookings b
+       JOIN skilled_profiles sp ON sp.skilled_id = b.skilled_id
+       WHERE b.client_id = ?
+       UNION ALL
+       
+       -- Get reviews activity
+       SELECT 
+        r.rating_id as id,
+        'review' as type,
+        'Review Submitted' as title,
+        CONCAT('You reviewed ', sp.firstName, ' ', sp.lastName) as description,
+        JSON_OBJECT(
+          'rating', r.rating,
+          'review', r.review,
+          'skilled_name', CONCAT(sp.firstName, ' ', sp.lastName),
+          'booking_id', r.booking_id
+        ) as details,
+        r.created_at
+       FROM ratings r
+       JOIN skilled_profiles sp ON sp.skilled_id = r.skilled_id
+       WHERE r.client_id = ?
+       
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [user_id, user_id, parseInt(limit), offset],
+    );
+
+    // Get total count
+    const [total] = await pool.query(
+      `SELECT COUNT(*) as total FROM (
+         SELECT booking_id FROM bookings WHERE client_id = ?
+         UNION ALL
+         SELECT rating_id FROM ratings WHERE client_id = ?
+       ) as combined`,
+      [user_id, user_id],
+    );
+
+    // Format activities with proper details parsing
+    const activities = bookings.map((activity) => ({
+      ...activity,
+      details:
+        typeof activity.details === "string"
+          ? JSON.parse(activity.details)
+          : activity.details,
+    }));
+
+    res.json({
+      activities,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total[0].total,
+        hasMore: offset + activities.length < total[0].total,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user activity logs:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+// Get user statistics
+export const getUserStats = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+
+    const [bookings] = await pool.query(
+      `SELECT 
+         COUNT(*) as total_bookings,
+         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_bookings,
+         SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END) as total_spent
+       FROM bookings 
+       WHERE client_id = ?`,
+      [user_id],
+    );
+
+    const [reviews] = await pool.query(
+      `SELECT COUNT(*) as total_reviews FROM ratings WHERE client_id = ?`,
+      [user_id],
+    );
+
+    res.json({
+      total_bookings: bookings[0].total_bookings || 0,
+      completed_bookings: bookings[0].completed_bookings || 0,
+      total_spent: bookings[0].total_spent || 0,
+      total_reviews: reviews[0].total_reviews || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
 // Change password - KEEP AS IS
 export const changePassword = async (req, res) => {
   try {

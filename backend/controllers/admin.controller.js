@@ -1,4 +1,10 @@
 import { pool } from "../config/db.js";
+import {
+  logProfileVerification,
+  logUserStatusChange,
+  logSkillManagement,
+  logReportResolution,
+} from "../utils/auditLogger.js";
 
 // ============ DASHBOARD STATS ============
 export const getDashboardStats = async (req, res) => {
@@ -144,34 +150,43 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ message: "Something went wrong" });
   }
 };
-
 export const updateUserStatus = async (req, res) => {
   try {
     const { user_id } = req.params;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
-    if (!["active", "suspended"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
+    // Get current status and user info
+    const [current] = await pool.query(
+      "SELECT status, firstName, lastName, email FROM users WHERE user_id = ?",
+      [user_id],
+    );
+
+    const oldStatus = current[0]?.status;
+    const userName = `${current[0]?.firstName} ${current[0]?.lastName}`;
 
     await pool.query("UPDATE users SET status = ? WHERE user_id = ?", [
       status,
       user_id,
     ]);
 
-    // Create notification for the user
-    const [user] = await pool.query(
-      "SELECT email, firstName FROM users WHERE user_id = ?",
-      [user_id],
-    );
+    // Log the action
+    await logUserStatusChange(req, user_id, oldStatus, status, reason);
 
-    if (user.length) {
+    // Create notification for the user
+    if (current.length) {
+      const message =
+        status === "active"
+          ? "Your account has been activated. You can now use all features of Alalay Connect."
+          : `Your account has been suspended. Reason: ${reason || "Violation of community guidelines"}`;
+
       await pool.query(
         `INSERT INTO notifications (user_id, type, title, message, data)
-         VALUES (?, 'system', 'Account Status Updated', 
-                 'Your account has been ${status === "active" ? "activated" : "suspended"}.',
-                 ?)`,
-        [user_id, JSON.stringify({ status, action: "status_update" })],
+         VALUES (?, 'system', 'Account Status Updated', ?, ?)`,
+        [
+          user_id,
+          message,
+          JSON.stringify({ status, action: "status_update", reason }),
+        ],
       );
     }
 
@@ -266,38 +281,39 @@ export const verifySkilledProfile = async (req, res) => {
     const { id } = req.params;
     const { status, admin_notes } = req.body;
 
-    if (!["approved", "rejected"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    // Update skilled profile
-    await pool.query(
-      `UPDATE skilled_profiles 
-       SET verification_status = ?, verified_at = NOW() 
-       WHERE skilled_id = ?`,
-      [status, id],
-    );
-
-    // Get user_id from skilled profile
-    const [profile] = await pool.query(
-      "SELECT user_id FROM skilled_profiles WHERE skilled_id = ?",
+    // Get current status before update
+    const [current] = await pool.query(
+      "SELECT verification_status FROM skilled_profiles WHERE skilled_id = ?",
       [id],
     );
 
-    if (profile.length && status === "approved") {
-      // Update user role to skilled
-      await pool.query("UPDATE users SET role = 'skilled' WHERE user_id = ?", [
-        profile[0].user_id,
-      ]);
-    }
+    const oldStatus = current[0]?.verification_status;
 
-    // Create notification for the user
-    const [user] = await pool.query(
-      "SELECT email, firstName FROM users WHERE user_id = ?",
-      [profile[0].user_id],
+    await pool.query(
+      `UPDATE skilled_profiles SET verification_status = ?, verified_at = NOW() WHERE skilled_id = ?`,
+      [status, id],
     );
 
-    if (user.length) {
+    if (status === "approved") {
+      await pool.query(
+        `UPDATE users u 
+         JOIN skilled_profiles sp ON sp.user_id = u.user_id
+         SET u.role = "skilled", u.status = "active" 
+         WHERE sp.skilled_id = ?`,
+        [id],
+      );
+    }
+
+    // Log the action
+    await logProfileVerification(req, id, oldStatus, status, admin_notes);
+
+    // Create notification for the user
+    const [profile] = await pool.query(
+      "SELECT user_id, firstName FROM skilled_profiles WHERE skilled_id = ?",
+      [id],
+    );
+
+    if (profile.length) {
       const message =
         status === "approved"
           ? "Congratulations! Your skilled worker profile has been approved. You can now start accepting bookings."
@@ -310,17 +326,10 @@ export const verifySkilledProfile = async (req, res) => {
       );
     }
 
-    // Log admin action
-    await pool.query(
-      `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, new_data)
-       VALUES (?, 'verify_skilled_profile', 'skilled_profiles', ?, ?)`,
-      [req.user.id, id, JSON.stringify({ status, admin_notes })],
-    );
-
-    res.json({ message: `Profile ${status} successfully` });
+    res.json({ message: `Skilled profile ${status}` });
   } catch (error) {
-    console.error("Error verifying profile:", error);
-    res.status(500).json({ message: "Something went wrong" });
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong with the server" });
   }
 };
 
@@ -343,7 +352,6 @@ export const createSkill = async (req, res) => {
       return res.status(400).json({ message: "Skill name is required" });
     }
 
-    // Check if skill already exists
     const [existing] = await pool.query("SELECT * FROM skills WHERE name = ?", [
       name,
     ]);
@@ -357,11 +365,7 @@ export const createSkill = async (req, res) => {
     ]);
 
     // Log admin action
-    await pool.query(
-      `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, new_data)
-       VALUES (?, 'create_skill', 'skills', ?, ?)`,
-      [req.user.id, result.insertId, JSON.stringify({ name })],
-    );
+    await logSkillManagement(req, result.insertId, "create_skill", name);
 
     res.status(201).json({
       message: "Skill created successfully",
@@ -382,10 +386,11 @@ export const updateSkill = async (req, res) => {
       return res.status(400).json({ message: "Skill name is required" });
     }
 
-    // Get old data for audit
-    const [old] = await pool.query("SELECT * FROM skills WHERE skill_id = ?", [
-      id,
-    ]);
+    // Get old name for audit
+    const [old] = await pool.query(
+      "SELECT name FROM skills WHERE skill_id = ?",
+      [id],
+    );
 
     if (!old.length) {
       return res.status(404).json({ message: "Skill not found" });
@@ -397,16 +402,7 @@ export const updateSkill = async (req, res) => {
     ]);
 
     // Log admin action
-    await pool.query(
-      `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, old_data, new_data)
-       VALUES (?, 'update_skill', 'skills', ?, ?, ?)`,
-      [
-        req.user.id,
-        id,
-        JSON.stringify({ name: old[0].name }),
-        JSON.stringify({ name }),
-      ],
-    );
+    await logSkillManagement(req, id, "update_skill", name, old[0].name);
 
     res.json({ message: "Skill updated successfully" });
   } catch (error) {
@@ -419,7 +415,6 @@ export const deleteSkill = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if skill is being used
     const [used] = await pool.query(
       "SELECT * FROM skilled_profile_skills WHERE skill_id = ?",
       [id],
@@ -431,18 +426,186 @@ export const deleteSkill = async (req, res) => {
       });
     }
 
+    const [skill] = await pool.query(
+      "SELECT name FROM skills WHERE skill_id = ?",
+      [id],
+    );
+    const skillName = skill[0]?.name;
+
     await pool.query("DELETE FROM skills WHERE skill_id = ?", [id]);
 
     // Log admin action
-    await pool.query(
-      `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id)
-       VALUES (?, 'delete_skill', 'skills', ?)`,
-      [req.user.id, id],
-    );
+    await logSkillManagement(req, id, "delete_skill", skillName);
 
     res.json({ message: "Skill deleted successfully" });
   } catch (error) {
     console.error("Error deleting skill:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+export const getAuditLogs = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      action,
+      entity_type,
+      admin_id,
+      start_date,
+      end_date,
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT 
+        al.*,
+        u.firstName as admin_firstName,
+        u.lastName as admin_lastName,
+        u.email as admin_email
+      FROM audit_logs al
+      LEFT JOIN users u ON u.user_id = al.admin_id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    if (action) {
+      query += ` AND al.action = ?`;
+      params.push(action);
+    }
+
+    if (entity_type) {
+      query += ` AND al.entity_type = ?`;
+      params.push(entity_type);
+    }
+
+    if (admin_id) {
+      query += ` AND al.admin_id = ?`;
+      params.push(admin_id);
+    }
+
+    if (start_date) {
+      query += ` AND DATE(al.created_at) >= ?`;
+      params.push(start_date);
+    }
+
+    if (end_date) {
+      query += ` AND DATE(al.created_at) <= ?`;
+      params.push(end_date);
+    }
+
+    query += ` ORDER BY al.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(parseInt(limit), offset);
+
+    const [logs] = await pool.query(query, params);
+
+    // Get total count
+    let countQuery = `SELECT COUNT(*) as total FROM audit_logs WHERE 1=1`;
+    const countParams = [];
+
+    if (action) {
+      countQuery += ` AND action = ?`;
+      countParams.push(action);
+    }
+    if (entity_type) {
+      countQuery += ` AND entity_type = ?`;
+      countParams.push(entity_type);
+    }
+    if (admin_id) {
+      countQuery += ` AND admin_id = ?`;
+      countParams.push(admin_id);
+    }
+    if (start_date) {
+      countQuery += ` AND DATE(created_at) >= ?`;
+      countParams.push(start_date);
+    }
+    if (end_date) {
+      countQuery += ` AND DATE(created_at) <= ?`;
+      countParams.push(end_date);
+    }
+
+    const [total] = await pool.query(countQuery, countParams);
+
+    // Parse old_data and new_data JSON for each log
+    const parsedLogs = logs.map((log) => {
+      if (log.old_data) {
+        try {
+          log.old_data = JSON.parse(log.old_data);
+        } catch (e) {}
+      }
+      if (log.new_data) {
+        try {
+          log.new_data = JSON.parse(log.new_data);
+        } catch (e) {}
+      }
+      return log;
+    });
+
+    res.json({
+      logs: parsedLogs,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: total[0].total,
+        pages: Math.ceil(total[0].total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching audit logs:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+export const getAuditStats = async (req, res) => {
+  try {
+    // Get summary statistics
+    const [summary] = await pool.query(`
+      SELECT 
+        COUNT(*) as total_actions,
+        COUNT(DISTINCT admin_id) as total_admins,
+        COUNT(DISTINCT DATE(created_at)) as active_days,
+        SUM(CASE WHEN action LIKE 'verify_profile%' THEN 1 ELSE 0 END) as profile_verifications,
+        SUM(CASE WHEN action LIKE 'update_user_status%' THEN 1 ELSE 0 END) as user_status_changes,
+        SUM(CASE WHEN action LIKE '%skill%' THEN 1 ELSE 0 END) as skill_management,
+        SUM(CASE WHEN action LIKE 'resolve_report%' THEN 1 ELSE 0 END) as report_resolutions
+      FROM audit_logs
+    `);
+
+    // Get actions by admin
+    const [byAdmin] = await pool.query(`
+      SELECT 
+        al.admin_id,
+        u.firstName,
+        u.lastName,
+        u.email,
+        COUNT(*) as action_count,
+        MAX(al.created_at) as last_action
+      FROM audit_logs al
+      JOIN users u ON u.user_id = al.admin_id
+      GROUP BY al.admin_id
+      ORDER BY action_count DESC
+    `);
+
+    // Get recent activity by day
+    const [daily] = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM audit_logs
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `);
+
+    res.json({
+      summary: summary[0],
+      by_admin: byAdmin,
+      daily_activity: daily,
+    });
+  } catch (error) {
+    console.error("Error fetching audit stats:", error);
     res.status(500).json({ message: "Something went wrong" });
   }
 };

@@ -1,3 +1,4 @@
+// backend/routes/admin.routes.js
 import { Router } from "express";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { isAdmin } from "../middleware/admin.middleware.js";
@@ -15,6 +16,8 @@ import {
   getReportedRatings,
   resolveReport,
   getAdminProfile,
+  getAuditLogs,
+  getAuditStats,
 } from "../controllers/admin.controller.js";
 
 const router = Router();
@@ -43,6 +46,12 @@ router.delete("/skills/:id", deleteSkill);
 // Reported Content
 router.get("/reports", getReportedRatings);
 router.put("/reports/:id/resolve", resolveReport);
+
+// Admin Profile
 router.get("/profile", getAdminProfile);
+
+// Audit Logs
+router.get("/audit-logs", getAuditLogs);
+router.get("/audit-stats", getAuditStats);
 
 export default router;
