@@ -506,7 +506,7 @@ const availableBarangays = computed(() => {
 })
 
 // Base URL for images
-const baseURL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000'
+const baseURL = import.meta.env.VITE_BASE_URL 
 
 // Profile image URL
 const profileImageUrl = computed(() => {

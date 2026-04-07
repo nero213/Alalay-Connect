@@ -344,7 +344,7 @@
                 </div>
                 <div class="timeline-content">
                   <h4>Ready for Review</h4>
-                  <p>Leave a review for this professional</p>
+                  <p>Leave a review for this Skilled</p>
                 </div>
               </div>
             </div>
@@ -570,7 +570,7 @@
               </svg>
               <textarea
                 v-model="rescheduleForm.reason"
-                placeholder="Let the professional know why you need to reschedule..."
+                placeholder="Let the Skilled Wokrer know why you need to reschedule..."
                 rows="3"
                 class="form-textarea"
               ></textarea>

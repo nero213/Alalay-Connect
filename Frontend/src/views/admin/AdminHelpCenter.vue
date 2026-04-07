@@ -350,7 +350,7 @@ onMounted(() => {
                                 <th>Priority</th>
                                 <th>Status</th>
                                 <th>Created</th>
-                                <th>Replies</th>
+                                
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -380,7 +380,6 @@ onMounted(() => {
                                     </span>
                                 </td>
                                 <td>{{ formatDate(ticket.created_at) }}</td>
-                                <td class="reply-count">{{ ticket.reply_count || 0 }}</td>
                                 <td>
                                     <button @click="viewTicket(ticket)" class="view-btn">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
