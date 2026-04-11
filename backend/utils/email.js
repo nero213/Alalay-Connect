@@ -2,30 +2,44 @@
 import nodemailer from "nodemailer";
 import "dotenv/config";
 
-// Create transporter
+// Create transporter using Resend SMTP
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.resend.com",
+  port: 587,
+  secure: false, // Use STARTTLS
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: "resend", // This is literally the word "resend"
+    pass: process.env.RESEND_API_KEY, // Your Resend API key
   },
-  debug: true, // Enable debug output
-  logger: true, // Log to console
+  debug: true,
+  logger: true,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
+// Verify connection on startup
 transporter.verify(function (error, success) {
   if (error) {
     console.error("❌ Nodemailer transporter error:", error);
   } else {
-    console.log("✅ Nodemailer transporter is ready to send emails");
+    console.log("✅ Nodemailer transporter is ready to send emails via Resend");
   }
 });
+
+// Helper function to get the "from" email address
+const getFromEmail = () => {
+  // For production with custom domain, use your verified domain
+  // For testing, use Resend's default domain
+  return process.env.EMAIL_FROM || "Alalay Connect <onboarding@resend.dev>";
+};
+
 export const sendPasswordResetEmail = async (email, token, name) => {
   try {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: email,
       subject: "Reset Your Password - Alalay Connect",
       html: `
@@ -43,11 +57,13 @@ export const sendPasswordResetEmail = async (email, token, name) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${email}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(
+      `✅ Password reset email sent to ${email} (ID: ${info.messageId})`,
+    );
     return true;
   } catch (error) {
-    console.error("Error sending password reset email:", error);
+    console.error("❌ Error sending password reset email:", error.message);
     throw error;
   }
 };
@@ -61,7 +77,7 @@ export const sendVerificationEmail = async (email, code) => {
     console.log(`📧 Attempting to send verification email to ${email}`);
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: email,
       subject: "Verify Your Email - Alalay Connect",
       html: `
@@ -73,21 +89,22 @@ export const sendVerificationEmail = async (email, code) => {
           </div>
           <p style="font-size: 14px; color: #666;">This code will expire in 15 minutes.</p>
           <p style="font-size: 14px; color: #666;">If you didn't request this, please ignore this email.</p>
+          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
+          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Verification email sent to ${email}`);
-    console.log(`📬 Message ID: ${info.messageId}`);
+    console.log(
+      `✅ Verification email sent to ${email} (ID: ${info.messageId})`,
+    );
     return true;
   } catch (error) {
     console.error("❌ Error sending verification email:");
     console.error("Error name:", error.name);
     console.error("Error message:", error.message);
     console.error("Error code:", error.code);
-    console.error("Error command:", error.command);
-    console.error("Full error:", JSON.stringify(error, null, 2));
     throw error;
   }
 };
@@ -95,7 +112,7 @@ export const sendVerificationEmail = async (email, code) => {
 export const sendWelcomeEmail = async (email, firstName) => {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: email,
       subject: "Welcome to Alalay Connect!",
       html: `
@@ -118,23 +135,23 @@ export const sendWelcomeEmail = async (email, firstName) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Welcome email sent to ${email} (ID: ${info.messageId})`);
     return true;
   } catch (error) {
-    console.error("Error sending welcome email:", error);
+    console.error("❌ Error sending welcome email:", error.message);
     return false;
   }
 };
 
 // ============= SUPPORT TICKET EMAILS =============
 
-// Send new ticket notification to admin
 export const sendNewTicketNotification = async (admins, ticketData) => {
   try {
     const adminEmails = admins.map((admin) => admin.email).join(", ");
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: adminEmails,
       subject: `New Support Ticket #${ticketData.ticket_uuid} - ${ticketData.subject}`,
       html: `
@@ -158,16 +175,17 @@ export const sendNewTicketNotification = async (admins, ticketData) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`New ticket notification sent to admins`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(
+      `✅ New ticket notification sent to admins (ID: ${info.messageId})`,
+    );
     return true;
   } catch (error) {
-    console.error("Error sending new ticket notification:", error);
+    console.error("❌ Error sending new ticket notification:", error.message);
     return false;
   }
 };
 
-// Send ticket reply notification to user
 export const sendTicketReplyNotification = async (
   userEmail,
   userName,
@@ -176,7 +194,7 @@ export const sendTicketReplyNotification = async (
 ) => {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: userEmail,
       subject: `New Reply on Support Ticket #${ticketData.ticket_uuid}`,
       html: `
@@ -198,16 +216,17 @@ export const sendTicketReplyNotification = async (
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Ticket reply notification sent to ${userEmail}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(
+      `✅ Ticket reply notification sent to ${userEmail} (ID: ${info.messageId})`,
+    );
     return true;
   } catch (error) {
-    console.error("Error sending ticket reply notification:", error);
+    console.error("❌ Error sending ticket reply notification:", error.message);
     return false;
   }
 };
 
-// Send ticket status update notification
 export const sendTicketStatusNotification = async (
   userEmail,
   userName,
@@ -217,7 +236,7 @@ export const sendTicketStatusNotification = async (
 ) => {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: userEmail,
       subject: `Support Ticket #${ticketData.ticket_uuid} Status Update`,
       html: `
@@ -240,16 +259,20 @@ export const sendTicketStatusNotification = async (
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Ticket status notification sent to ${userEmail}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(
+      `✅ Ticket status notification sent to ${userEmail} (ID: ${info.messageId})`,
+    );
     return true;
   } catch (error) {
-    console.error("Error sending ticket status notification:", error);
+    console.error(
+      "❌ Error sending ticket status notification:",
+      error.message,
+    );
     return false;
   }
 };
 
-// Send ticket assigned notification
 export const sendTicketAssignedNotification = async (
   adminEmail,
   adminName,
@@ -257,7 +280,7 @@ export const sendTicketAssignedNotification = async (
 ) => {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: getFromEmail(),
       to: adminEmail,
       subject: `Ticket #${ticketData.ticket_uuid} Assigned to You`,
       html: `
@@ -280,11 +303,16 @@ export const sendTicketAssignedNotification = async (
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Ticket assigned notification sent to ${adminEmail}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(
+      `✅ Ticket assigned notification sent to ${adminEmail} (ID: ${info.messageId})`,
+    );
     return true;
   } catch (error) {
-    console.error("Error sending ticket assigned notification:", error);
+    console.error(
+      "❌ Error sending ticket assigned notification:",
+      error.message,
+    );
     return false;
   }
 };

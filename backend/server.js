@@ -20,7 +20,6 @@ import messageRoutes from "./routes/message.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import residentRoutes from "./routes/resident.routes.js";
 import helpRoutes from "./routes/help.routes.js";
-import { sendVerificationEmail } from "./utils/email.js";
 
 // ⚠️ IMPORTANT: Import passport configuration BEFORE routes
 import "./config/passport.js"; // Or wherever you put the passport config
@@ -47,7 +46,7 @@ app.get("/test-email", async (req, res) => {
     console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Set" : "MISSING");
     console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Set" : "MISSING");
 
-    await sendVerificationEmail("robekyles@gmail.com", "123456");
+    await sendVerificationEmail("robesalangad@gmail.com", "123456");
     res.json({ message: "Test email sent! Check logs for details." });
   } catch (error) {
     console.error("❌ Test email failed:", error);
