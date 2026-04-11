@@ -344,7 +344,7 @@ const profileImageUrl = computed(() => {
   if (!imagePath.startsWith('/uploads')) {
     imagePath = `/uploads/${imagePath.split('/').pop()}`
   }
-  return `${baseUrl}${imagePath}`
+  return `${baseUrl}${imagePath}` ?? `https://alalay-connect.onrender.com${imagePath}`
 })
 
 // Format phone number for display
