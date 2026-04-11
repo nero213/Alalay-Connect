@@ -21,7 +21,7 @@
                     {{ ratingLabels[selectedRating] }}
                 </div>
 
-                <textarea v-model="review" placeholder="Share your experience with this SKilled Worker (optional)"
+                <textarea v-model="review" placeholder="Share your experience with this Skilled Worker (optional)"
                     rows="4" class="review-input"></textarea>
 
                 <div v-if="userRating" class="existing-rating">

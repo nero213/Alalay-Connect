@@ -245,7 +245,7 @@
             <label>Reason for rescheduling (optional)</label>
             <textarea
               v-model="rescheduleForm.reason"
-              placeholder="Let the professional know why you need to reschedule..."
+              placeholder="Let the Skilled Worker know why you need to reschedule..."
               rows="2"
             ></textarea>
           </div>
