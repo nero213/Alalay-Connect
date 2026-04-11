@@ -1,36 +1,12 @@
 // backend/utils/email.js
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import "dotenv/config";
 
-// Create transporter using Resend SMTP
-const transporter = nodemailer.createTransport({
-  host: "smtp.resend.com",
-  port: 587,
-  secure: false, // Use STARTTLS
-  auth: {
-    user: "resend", // This is literally the word "resend"
-    pass: process.env.RESEND_API_KEY, // Your Resend API key
-  },
-  debug: true,
-  logger: true,
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
-
-// Verify connection on startup
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error("❌ Nodemailer transporter error:", error);
-  } else {
-    console.log("✅ Nodemailer transporter is ready to send emails via Resend");
-  }
-});
+// Initialize Resend with your API key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Helper function to get the "from" email address
 const getFromEmail = () => {
-  // For production with custom domain, use your verified domain
-  // For testing, use Resend's default domain
   return process.env.EMAIL_FROM || "Alalay Connect <onboarding@resend.dev>";
 };
 
@@ -38,9 +14,9 @@ export const sendPasswordResetEmail = async (email, token, name) => {
   try {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
-      to: email,
+      to: [email],
       subject: "Reset Your Password - Alalay Connect",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -55,12 +31,14 @@ export const sendPasswordResetEmail = async (email, token, name) => {
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(
-      `✅ Password reset email sent to ${email} (ID: ${info.messageId})`,
-    );
+    if (error) {
+      console.error("❌ Resend API error (password reset):", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Password reset email sent to ${email} (ID: ${data?.id})`);
     return true;
   } catch (error) {
     console.error("❌ Error sending password reset email:", error.message);
@@ -76,9 +54,9 @@ export const sendVerificationEmail = async (email, code) => {
   try {
     console.log(`📧 Attempting to send verification email to ${email}`);
 
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
-      to: email,
+      to: [email],
       subject: "Verify Your Email - Alalay Connect",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -93,27 +71,26 @@ export const sendVerificationEmail = async (email, code) => {
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(
-      `✅ Verification email sent to ${email} (ID: ${info.messageId})`,
-    );
+    if (error) {
+      console.error("❌ Resend API error (verification):", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`✅ Verification email sent to ${email} (ID: ${data?.id})`);
     return true;
   } catch (error) {
-    console.error("❌ Error sending verification email:");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error code:", error.code);
+    console.error("❌ Error sending verification email:", error.message);
     throw error;
   }
 };
 
 export const sendWelcomeEmail = async (email, firstName) => {
   try {
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
-      to: email,
+      to: [email],
       subject: "Welcome to Alalay Connect!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -133,10 +110,14 @@ export const sendWelcomeEmail = async (email, firstName) => {
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Welcome email sent to ${email} (ID: ${info.messageId})`);
+    if (error) {
+      console.error("❌ Resend API error (welcome):", error);
+      return false;
+    }
+
+    console.log(`✅ Welcome email sent to ${email} (ID: ${data?.id})`);
     return true;
   } catch (error) {
     console.error("❌ Error sending welcome email:", error.message);
@@ -148,9 +129,9 @@ export const sendWelcomeEmail = async (email, firstName) => {
 
 export const sendNewTicketNotification = async (admins, ticketData) => {
   try {
-    const adminEmails = admins.map((admin) => admin.email).join(", ");
+    const adminEmails = admins.map((admin) => admin.email);
 
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
       to: adminEmails,
       subject: `New Support Ticket #${ticketData.ticket_uuid} - ${ticketData.subject}`,
@@ -173,12 +154,14 @@ export const sendNewTicketNotification = async (admins, ticketData) => {
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(
-      `✅ New ticket notification sent to admins (ID: ${info.messageId})`,
-    );
+    if (error) {
+      console.error("❌ Resend API error (new ticket):", error);
+      return false;
+    }
+
+    console.log(`✅ New ticket notification sent to admins (ID: ${data?.id})`);
     return true;
   } catch (error) {
     console.error("❌ Error sending new ticket notification:", error.message);
@@ -193,9 +176,9 @@ export const sendTicketReplyNotification = async (
   replyMessage,
 ) => {
   try {
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
-      to: userEmail,
+      to: [userEmail],
       subject: `New Reply on Support Ticket #${ticketData.ticket_uuid}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -214,11 +197,15 @@ export const sendTicketReplyNotification = async (
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error("❌ Resend API error (ticket reply):", error);
+      return false;
+    }
+
     console.log(
-      `✅ Ticket reply notification sent to ${userEmail} (ID: ${info.messageId})`,
+      `✅ Ticket reply notification sent to ${userEmail} (ID: ${data?.id})`,
     );
     return true;
   } catch (error) {
@@ -235,9 +222,9 @@ export const sendTicketStatusNotification = async (
   newStatus,
 ) => {
   try {
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
-      to: userEmail,
+      to: [userEmail],
       subject: `Support Ticket #${ticketData.ticket_uuid} Status Update`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -257,11 +244,15 @@ export const sendTicketStatusNotification = async (
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error("❌ Resend API error (ticket status):", error);
+      return false;
+    }
+
     console.log(
-      `✅ Ticket status notification sent to ${userEmail} (ID: ${info.messageId})`,
+      `✅ Ticket status notification sent to ${userEmail} (ID: ${data?.id})`,
     );
     return true;
   } catch (error) {
@@ -279,9 +270,9 @@ export const sendTicketAssignedNotification = async (
   ticketData,
 ) => {
   try {
-    const mailOptions = {
+    const { data, error } = await resend.emails.send({
       from: getFromEmail(),
-      to: adminEmail,
+      to: [adminEmail],
       subject: `Ticket #${ticketData.ticket_uuid} Assigned to You`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -301,11 +292,15 @@ export const sendTicketAssignedNotification = async (
           <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
-    };
+    });
 
-    const info = await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error("❌ Resend API error (ticket assigned):", error);
+      return false;
+    }
+
     console.log(
-      `✅ Ticket assigned notification sent to ${adminEmail} (ID: ${info.messageId})`,
+      `✅ Ticket assigned notification sent to ${adminEmail} (ID: ${data?.id})`,
     );
     return true;
   } catch (error) {
