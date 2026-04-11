@@ -95,9 +95,8 @@ export const resendVerificationCode = async (req, res) => {
     );
 
     // Send new verification email
-    sendVerificationEmail(email, verificationCode).catch((err) =>
-      console.error(err),
-    );
+    await sendVerificationEmail(email, verificationCode);
+
     res.json({
       message: "New verification code sent to your email",
     });
