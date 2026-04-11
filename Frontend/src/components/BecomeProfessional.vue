@@ -643,7 +643,7 @@ onMounted(() => {
             class="btn btn-success"
             disabled
           >
-            <i class="bi bi-patch-check-fill"></i> Verified Professional
+            <i class="bi bi-patch-check-fill"></i> Verified Skilled Worker
           </button>
         </div>
       </div>

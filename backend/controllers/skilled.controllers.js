@@ -296,13 +296,18 @@ export const updateSkilledLocation = async (req, res) => {
   try {
     let { barangay, city, latitude, longitude } = req.body;
 
-    // If barangay or city is missing/empty, get from coordinates
-    if (!barangay || !barangay.trim() || !city || !city.trim()) {
-      if (latitude && longitude) {
-        const result = await getAddressFromCoordinates(latitude, longitude);
-        barangay = result.barangay;
-        city = result.city;
-      }
+    console.log("Received location update:", {
+      barangay,
+      city,
+      latitude,
+      longitude,
+    });
+
+    // If coordinates are missing, try to get them from city/barangay
+    if ((!latitude || !longitude) && city) {
+      // You might want to call a geocoding service here
+      // Or use your local coordinates database
+      console.log("Coordinates missing, using city/barangay only");
     }
 
     const profile = await ensureProfileExists(req.user.id);
@@ -310,14 +315,23 @@ export const updateSkilledLocation = async (req, res) => {
     if (!profile) {
       return res
         .status(404)
-        .json({ message: "skilled profile user not found" });
+        .json({ message: "Skilled profile user not found" });
     }
 
     await pool.query(
-      `UPDATE skilled_profiles SET barangay = ?, city = ?, latitude = ?, longitude = ?, is_active = 1 WHERE user_id = ?`,
-      [barangay, city, latitude ?? null, longitude ?? null, req.user.id],
+      `UPDATE skilled_profiles 
+       SET barangay = ?, city = ?, latitude = ?, longitude = ?, is_active = 1 
+       WHERE user_id = ?`,
+      [
+        barangay || null,
+        city || null,
+        latitude ?? null,
+        longitude ?? null,
+        req.user.id,
+      ],
     );
 
+    console.log("Location updated successfully for user:", req.user.id);
     res.status(200).json({ message: "Location updated" });
   } catch (error) {
     console.error("Location update error:", error);
@@ -384,7 +398,22 @@ export const searchSkilledWorkers = async (req, res) => {
       params.push(`%${skill}%`);
     }
 
-    query += ` GROUP BY sp.skilled_id ORDER BY distance ASC LIMIT 50`;
+    query += `GROUP BY 
+  sp.skilled_id, 
+  u.user_id, 
+  u.firstName, 
+  u.lastName, 
+  sp.bio, 
+  sp.years_experience, 
+  sp.hourly_rate, 
+  sp.latitude, 
+  sp.longitude, 
+  sp.profile_image, 
+  sp.verification_status, 
+  sp.barangay, 
+  sp.city
+ORDER BY distance ASC 
+LIMIT 50`;
 
     const [rows] = await pool.execute(query, params);
 

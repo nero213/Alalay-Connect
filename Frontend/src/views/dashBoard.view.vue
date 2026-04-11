@@ -123,7 +123,7 @@ const loadCategories = async () => {
   try {
     const skills = await getAllSkills()
     categories.value = [
-      { id: 'all', name: 'All Professionals', icon: 'search' },
+      { id: 'all', name: 'All Skilled Workers', icon: 'search' },
       ...skills.map((skill) => ({
         id: skill.skill_id,
         name: skill.name,
@@ -257,7 +257,7 @@ const getRatingStars = (rating) => {
 const bookNow = (worker) => {
   if (!worker || !worker.skilled_id) {
     console.error('Invalid worker data:', worker)
-    alert('Cannot book this professional. Missing information.')
+    alert('Cannot book this Skilled Worker. Missing information.')
     return
   }
   router.push(`/booking/${worker.skilled_id}`)
@@ -267,7 +267,7 @@ const bookNow = (worker) => {
 const openQuickBook = (worker) => {
   if (!worker || !worker.skilled_id) {
     console.error('Invalid worker data:', worker)
-    alert('Cannot quick book this professional. Missing information.')
+    alert('Cannot quick book this Skilled Worker. Missing information.')
     return
   }
   selectedWorker.value = worker
@@ -295,7 +295,7 @@ const confirmQuickBook = () => {
 
   if (!selectedWorker.value.skilled_id) {
     console.error('Worker has no skilled_id:', selectedWorker.value)
-    alert('Cannot book this professional. Missing ID.')
+    alert('Cannot book this Skilled Worker. Missing ID.')
     closeQuickBook()
     return
   }
@@ -412,7 +412,7 @@ onMounted(() => {
               }}
             </h2>
           </div>
-          <span class="results-count">{{ filteredWorkers.length }} professionals found</span>
+          <span class="results-count">{{ filteredWorkers.length }} Skilled Worker found</span>
         </div>
 
         <!-- Loading State -->
@@ -608,7 +608,7 @@ onMounted(() => {
               </svg>
             </span>
           </div>
-          <h3 class="empty-title">No professionals found</h3>
+          <h3 class="empty-title">No Skilled Worker found</h3>
           <p class="empty-message">Try adjusting your search or filters</p>
           <button
             @click=" searchQuery = ''; selectedCategory = 'all'" class="reset-button">

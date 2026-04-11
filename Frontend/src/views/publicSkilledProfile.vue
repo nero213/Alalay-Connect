@@ -253,7 +253,7 @@ onMounted(() => {
       <!-- Loading State -->
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner"></div>
-        <p class="loading-text">Loading professional profile...</p>
+        <p class="loading-text">Loading Skilled Worker profile...</p>
       </div>
 
       <!-- Error State -->
@@ -680,7 +680,7 @@ onMounted(() => {
 
                 <!-- User's Existing Rating Notice -->
                 <div v-if="userRating" class="user-rating-banner">
-                  <span>You rated this professional {{ userRating.rating }} stars</span>
+                  <span>You rated this Skilled Worker {{ userRating.rating }} stars</span>
                   <button @click="openRatingModal" class="update-link">Update Review</button>
                 </div>
               </div>
@@ -740,7 +740,7 @@ onMounted(() => {
                     </svg>
                   </div>
                   <h3 class="empty-title">No reviews yet</h3>
-                  <p class="empty-description">Be the first to review this professional</p>
+                  <p class="empty-description">Be the first to review this Skilled Worker</p>
                   <button @click="openRatingModal" class="empty-action">Write a Review</button>
                 </div>
               </div>

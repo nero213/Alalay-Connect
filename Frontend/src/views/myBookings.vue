@@ -60,7 +60,7 @@
               />
               <div>
                 <h3>{{ booking.skilled_firstName }} {{ booking.skilled_lastName }}</h3>
-                <p class="professional-skill">{{ booking.skills || 'Professional' }}</p>
+                <p class="professional-skill">{{ booking.skills || 'Skilled Worker' }}</p>
               </div>
             </div>
             <span :class="['status-badge', booking.status]">
@@ -131,7 +131,7 @@
           You don't have any {{ statusFilter !== 'all' ? statusFilter : '' }} bookings at the
           moment.
         </p>
-        <router-link to="/dashboard" class="browse-btn"> Browse Professionals </router-link>
+        <router-link to="/dashboard" class="browse-btn"> Browse Skilled Worker </router-link>
       </div>
     </div>
 
@@ -245,7 +245,7 @@
             <label>Reason for rescheduling (optional)</label>
             <textarea
               v-model="rescheduleForm.reason"
-              placeholder="Let the professional know why you need to reschedule..."
+              placeholder="Let the Skilled Worker know why you need to reschedule..."
               rows="2"
             ></textarea>
           </div>

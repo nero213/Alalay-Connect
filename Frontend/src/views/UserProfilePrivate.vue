@@ -336,6 +336,7 @@ const availableBarangays = computed(() => {
   return getBarangays(editForm.city)
 })
 
+const baseUrl = import.meta.env.VITE_BASE_URL
 // Profile image URL
 const profileImageUrl = computed(() => {
   if (!user.value?.profile_image) return '/default-avatar.png'
@@ -343,7 +344,7 @@ const profileImageUrl = computed(() => {
   if (!imagePath.startsWith('/uploads')) {
     imagePath = `/uploads/${imagePath.split('/').pop()}`
   }
-  return `http://localhost:3000${imagePath}`
+  return `${baseUrl}${imagePath}`
 })
 
 // Format phone number for display

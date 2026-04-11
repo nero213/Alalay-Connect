@@ -22,7 +22,7 @@ export const submitRating = async (req, res) => {
     if (!skilled.length) {
       return res
         .status(404)
-        .json({ message: "Skilled professional not found" });
+        .json({ message: "Skilled Worker not found" });
     }
 
     // Check if client has already rated this skilled worker

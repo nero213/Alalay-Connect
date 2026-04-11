@@ -171,14 +171,14 @@ const submitProfessional = async () => {
   error.value = ''
   message.value = ''
 
-  // Validate all required fields
-  if (!bio.value || !yearsExperience.value) {
-    error.value = 'Please fill in bio and years of experience'
-    return
-  }
-
-  if (!govID.value || !certificate.value || !profileImage.value) {
-    error.value = 'Please upload all required documents (Government ID, Certificate, Profile Image)'
+  if (
+    !bio.value ||
+    !yearsExperience.value ||
+    !govID.value ||
+    !certificate.value ||
+    !profileImage.value
+  ) {
+    error.value = 'Please fill all fields and upload required documents'
     return
   }
 
@@ -188,13 +188,7 @@ const submitProfessional = async () => {
     return
   }
 
-  // Validate coordinates
-  if (!latitude.value || !longitude.value) {
-    error.value = 'Unable to determine coordinates for your location. Please contact support.'
-    return
-  }
-
-  if (selectedSkills.value.length === 0 && mySkills.value.length === 0) {
+  if (selectedSkills.value.length === 0) {
     error.value = 'Please select at least one skill.'
     return
   }
@@ -202,15 +196,11 @@ const submitProfessional = async () => {
   loading.value = true
 
   try {
-    // 1️⃣ Create or update profile
-    const response = await createSkilledProfile({
+    // 1️⃣ Create profile
+    await createSkilledProfile({
       bio: bio.value,
       years_experience: yearsExperience.value,
     })
-
-    if (response.isReapply) {
-      message.value = 'Application resubmitted! Uploading your documents...'
-    }
 
     // 2️⃣ Upload files
     if (govID.value) await uploadGovID(govID.value)
@@ -218,26 +208,24 @@ const submitProfessional = async () => {
     if (profileImage.value) await uploadProfileImage(profileImage.value)
 
     // 3️⃣ Add skills
-    const allSkills = [
-      ...new Set([...mySkills.value.map((s) => s.skill_id), ...selectedSkills.value]),
-    ]
-    if (allSkills.length > 0) {
-      await addSkillsToProfile(allSkills)
-    }
+    await addSkillsToProfile(selectedSkills.value)
 
-    // 4️⃣ Send location with coordinates from JSON
+    // 4️⃣ Get coordinates from location (using the utility function)
+    const { getCoordinatesFromLocation } = await import('@/utils/locationCoordinates')
+    const coords = getCoordinatesFromLocation(selectedCity.value, selectedBarangay.value)
+
+    // 5️⃣ Send location with coordinates
     const locationData = {
       barangay: selectedBarangay.value,
       city: selectedCity.value,
-      latitude: Number(latitude.value),
-      longitude: Number(longitude.value),
+      latitude: coords?.lat || latitude.value || null,
+      longitude: coords?.lng || longitude.value || null,
     }
 
+    console.log('Submitting location data:', locationData)
     await updateSkilledLocation(locationData)
 
-    message.value = isReapply.value
-      ? 'Your application has been resubmitted successfully! Pending admin review.'
-      : 'Professional profile successfully created! Your application is pending review.'
+    message.value = 'Skilled profile successfully created! Your application is pending review.'
 
     // Load the newly added skills
     await loadMySkills()
@@ -249,7 +237,7 @@ const submitProfessional = async () => {
     }, 3000)
   } catch (err) {
     console.error(err)
-    error.value = err.response?.data?.message || 'Something went wrong. Please try again.'
+    error.value = err.response?.data?.message || 'Something went wrong.'
   } finally {
     loading.value = false
   }
@@ -304,7 +292,7 @@ onMounted(async () => {
             />
           </svg>
         </div>
-        <h2>{{ isReapply ? 'Reapply as a Professional' : 'Become a Verified Professional' }}</h2>
+        <h2>{{ isReapply ? 'Reapply as a Professional' : 'Become a Verified Skilled Worker' }}</h2>
         <p class="subtitle">
           {{
             isReapply

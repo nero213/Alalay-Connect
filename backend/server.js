@@ -25,6 +25,8 @@ import "./config/passport.js"; // Or wherever you put the passport config
 
 const app = express();
 const PORT = process.env.PORT_NUMBER || 3000;
+const backEndPort = process.env.BACKEND_PORT;
+const frontEndPort = process.env.FRONTEND_URL
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,7 +100,8 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
-  console.log("http://192.191.5.169:3000");
+  console.log(`${backEndPort}`);
+  console.log(`${frontEndPort}`)
   console.log(`🔗 Facebook login: http://localhost:${PORT}/auth/facebook`);
   console.log(`📁 Uploads folder: ${path.join(__dirname, "uploads")}`);
 });

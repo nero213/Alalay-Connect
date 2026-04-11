@@ -204,7 +204,7 @@ onMounted(() => {
 
     <div class="booking-container">
       <div class="booking-header">
-        <h1>Book a Professional</h1>
+        <h1>Book a SKilled Worker</h1>
         <p>Fill in the details below to book your service</p>
       </div>
 
