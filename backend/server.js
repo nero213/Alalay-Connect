@@ -31,11 +31,29 @@ const frontEndPort = process.env.FRONTEND_URL;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const allowedOrigins = [
+  "http://localhost:5173", // For local development
+  "https://alalay-connect.vercel.app", // Main Production
+  "https://alalay-connect-git-main-robekyle3-1218s-projects.vercel.app", // Branch-specific
+  "https://alalay-connect-qjyr7qorp-robekyle3-1218s-projects.vercel.app", // Preview/Current
+];
+
 const corsOption = {
-  origin: process.env.FRONTEND_URL,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log("Blocked by CORS:", origin); // Helps you debug new domains
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true, // ✅ lowercase 'c'
+  credentials: true,
 };
+
 app.use(cors(corsOption));
 
 app.use(express.json());
