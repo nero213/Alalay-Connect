@@ -13,7 +13,7 @@ export const pool = mysql.createPool({
   database: process.env.DB_DATABASE || "alalay_connect",
   port: process.env.DB_PORT ?? 3306,
   ssl: {
-    ca: fs.readFileSync("C:/Users/obera/Downloads/isrgrootx1.pem"),
+    ca: fs.readFileSync("./certs/isrgrootx1.pem"),
   },
   connectionLimit: 10,
   charset: "utf8mb4",
