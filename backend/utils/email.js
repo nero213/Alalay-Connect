@@ -9,8 +9,17 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  debug: true, // Enable debug output
+  logger: true, // Log to console
 });
 
+transporter.verify(function (error, success) {
+  if (error) {
+    console.error("❌ Nodemailer transporter error:", error);
+  } else {
+    console.log("✅ Nodemailer transporter is ready to send emails");
+  }
+});
 export const sendPasswordResetEmail = async (email, token, name) => {
   try {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
@@ -49,6 +58,8 @@ export const generateVerificationCode = () => {
 
 export const sendVerificationEmail = async (email, code) => {
   try {
+    console.log(`📧 Attempting to send verification email to ${email}`);
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
@@ -62,17 +73,21 @@ export const sendVerificationEmail = async (email, code) => {
           </div>
           <p style="font-size: 14px; color: #666;">This code will expire in 15 minutes.</p>
           <p style="font-size: 14px; color: #666;">If you didn't request this, please ignore this email.</p>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
         </div>
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${email}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Verification email sent to ${email}`);
+    console.log(`📬 Message ID: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error("❌ Error sending verification email:");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
+    console.error("Error command:", error.command);
+    console.error("Full error:", JSON.stringify(error, null, 2));
     throw error;
   }
 };
