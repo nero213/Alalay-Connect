@@ -398,7 +398,22 @@ export const searchSkilledWorkers = async (req, res) => {
       params.push(`%${skill}%`);
     }
 
-    query += ` GROUP BY sp.skilled_id ORDER BY distance ASC LIMIT 50`;
+    query += `GROUP BY 
+  sp.skilled_id, 
+  u.user_id, 
+  u.firstName, 
+  u.lastName, 
+  sp.bio, 
+  sp.years_experience, 
+  sp.hourly_rate, 
+  sp.latitude, 
+  sp.longitude, 
+  sp.profile_image, 
+  sp.verification_status, 
+  sp.barangay, 
+  sp.city
+ORDER BY distance ASC 
+LIMIT 50`;
 
     const [rows] = await pool.execute(query, params);
 
