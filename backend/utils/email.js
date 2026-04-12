@@ -1,48 +1,33 @@
 // backend/utils/email.js
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import "dotenv/config";
 
-// Initialize Resend with your API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Mailtrap Transporter
+const transporter = nodemailer.createTransport({
+  host: "sandbox.smtp.mailtrap.io",
+  port: 2525,
+  auth: {
+    user: process.env.MAILTRAP_USER,
+    pass: process.env.MAILTRAP_PASS,
+  },
+});
 
-// Helper function to get the "from" email address
-const getFromEmail = () => {
-  return process.env.EMAIL_FROM || "Alalay Connect <onboarding@resend.dev>";
-};
-
-export const sendPasswordResetEmail = async (email, token, name) => {
+// Centralized Helper Function
+const sendMailtrap = async (to, subject, html, logContext) => {
   try {
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: [email],
-      subject: "Reset Your Password - Alalay Connect",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">Reset Your Password</h2>
-          <p>Hi ${name},</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
-          </div>
-          <p>If you didn't request this, please ignore this email. This link will expire in 1 hour.</p>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
+    const info = await transporter.sendMail({
+      from:
+        process.env.EMAIL_FROM ||
+        "Alalay Connect <onboarding@alalayconnect.com>",
+      to,
+      subject,
+      html,
     });
-
-    if (error) {
-      console.error("❌ Resend API error (password reset):", error);
-      throw new Error(error.message);
-    }
-
-    console.log(`✅ Password reset email sent to ${email} (ID: ${data?.id})`);
+    console.log(`✅ ${logContext} email sent (ID: ${info.messageId})`);
     return true;
   } catch (error) {
-    console.error("❌ Error sending password reset email:", error.message);
-    throw error;
+    console.error(`❌ Mailtrap error (${logContext}):`, error.message);
+    return false;
   }
 };
 
@@ -50,123 +35,94 @@ export const generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// ============= AUTHENTICATION EMAILS =============
+
+export const sendPasswordResetEmail = async (email, token, name) => {
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">Reset Your Password</h2>
+      <p>Hi ${name},</p>
+      <p>Click the button below to create a new password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+      </div>
+      <p>This link will expire in 1 hour.</p>
+      <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    email,
+    "Reset Your Password - Alalay Connect",
+    html,
+    "password reset",
+  );
+};
+
 export const sendVerificationEmail = async (email, code) => {
-  try {
-    console.log(`📧 Attempting to send verification email to ${email}`);
-
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: [email],
-      subject: "Verify Your Email - Alalay Connect",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">Welcome to Alalay Connect!</h2>
-          <p style="font-size: 16px; color: #333;">Please verify your email address using the code below:</p>
-          <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;">
-            <h1 style="font-size: 48px; letter-spacing: 10px; color: #4e73df; margin: 0;">${code}</h1>
-          </div>
-          <p style="font-size: 14px; color: #666;">This code will expire in 15 minutes.</p>
-          <p style="font-size: 14px; color: #666;">If you didn't request this, please ignore this email.</p>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("❌ Resend API error (verification):", error);
-      throw new Error(error.message);
-    }
-
-    console.log(`✅ Verification email sent to ${email} (ID: ${data?.id})`);
-    return true;
-  } catch (error) {
-    console.error("❌ Error sending verification email:", error.message);
-    throw error;
-  }
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">Welcome to Alalay Connect!</h2>
+      <p style="font-size: 16px; color: #333;">Please verify your email address using the code below:</p>
+      <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;">
+        <h1 style="font-size: 48px; letter-spacing: 10px; color: #4e73df; margin: 0;">${code}</h1>
+      </div>
+      <p style="font-size: 14px; color: #666;">This code will expire in 15 minutes.</p>
+      <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    email,
+    "Verify Your Email - Alalay Connect",
+    html,
+    "verification",
+  );
 };
 
 export const sendWelcomeEmail = async (email, firstName) => {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: [email],
-      subject: "Welcome to Alalay Connect!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">Welcome to Alalay Connect, ${firstName}!</h2>
-          <p style="font-size: 16px; color: #333;">Your email has been successfully verified. Your account is now active!</p>
-          <p style="font-size: 16px; color: #333;">You can now:</p>
-          <ul style="font-size: 16px; color: #333;">
-            <li>Browse skilled professionals in your area</li>
-            <li>Book services</li>
-            <li>Leave reviews</li>
-            <li>Create your professional profile (if you're a skilled worker)</li>
-          </ul>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/login" style="background-color: #4e73df; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Get Started</a>
-          </div>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("❌ Resend API error (welcome):", error);
-      return false;
-    }
-
-    console.log(`✅ Welcome email sent to ${email} (ID: ${data?.id})`);
-    return true;
-  } catch (error) {
-    console.error("❌ Error sending welcome email:", error.message);
-    return false;
-  }
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">Welcome to Alalay Connect, ${firstName}!</h2>
+      <p>Your email has been successfully verified. Your account is now active!</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL}/login" style="background-color: #4e73df; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Get Started</a>
+      </div>
+      <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    email,
+    "Welcome to Alalay Connect!",
+    html,
+    "welcome",
+  );
 };
 
 // ============= SUPPORT TICKET EMAILS =============
 
 export const sendNewTicketNotification = async (admins, ticketData) => {
-  try {
-    const adminEmails = admins.map((admin) => admin.email);
-
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: adminEmails,
-      subject: `New Support Ticket #${ticketData.ticket_uuid} - ${ticketData.subject}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">New Support Ticket Created</h2>
-          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Ticket ID:</strong> ${ticketData.ticket_uuid}</p>
-            <p><strong>From:</strong> ${ticketData.user_name} (${ticketData.user_email})</p>
-            <p><strong>Subject:</strong> ${ticketData.subject}</p>
-            <p><strong>Category:</strong> ${ticketData.category}</p>
-            <p><strong>Priority:</strong> ${ticketData.priority}</p>
-            <p><strong>Message:</strong></p>
-            <p style="background: white; padding: 10px; border-radius: 5px;">${ticketData.message}</p>
-          </div>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${process.env.FRONTEND_URL}/admin/help" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
-          </div>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("❌ Resend API error (new ticket):", error);
-      return false;
-    }
-
-    console.log(`✅ New ticket notification sent to admins (ID: ${data?.id})`);
-    return true;
-  } catch (error) {
-    console.error("❌ Error sending new ticket notification:", error.message);
-    return false;
-  }
+  const adminEmails = admins.map((admin) => admin.email);
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">New Support Ticket Created</h2>
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Ticket ID:</strong> ${ticketData.ticket_uuid}</p>
+        <p><strong>From:</strong> ${ticketData.user_name} (${ticketData.user_email})</p>
+        <p><strong>Subject:</strong> ${ticketData.subject}</p>
+        <p><strong>Message:</strong></p>
+        <p style="background: white; padding: 10px; border-radius: 5px;">${ticketData.message}</p>
+      </div>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${process.env.FRONTEND_URL}/admin/help" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
+      </div>
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    adminEmails,
+    `New Support Ticket #${ticketData.ticket_uuid}`,
+    html,
+    "admin ticket notification",
+  );
 };
 
 export const sendTicketReplyNotification = async (
@@ -175,43 +131,24 @@ export const sendTicketReplyNotification = async (
   ticketData,
   replyMessage,
 ) => {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: [userEmail],
-      subject: `New Reply on Support Ticket #${ticketData.ticket_uuid}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">New Reply on Your Support Ticket</h2>
-          <p>Hi ${userName},</p>
-          <p>There's a new reply on your support ticket <strong>#${ticketData.ticket_uuid}</strong>.</p>
-          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Subject:</strong> ${ticketData.subject}</p>
-            <p><strong>Reply:</strong></p>
-            <p style="background: white; padding: 10px; border-radius: 5px;">${replyMessage}</p>
-          </div>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${process.env.FRONTEND_URL}/my-tickets/${ticketData.ticket_id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
-          </div>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("❌ Resend API error (ticket reply):", error);
-      return false;
-    }
-
-    console.log(
-      `✅ Ticket reply notification sent to ${userEmail} (ID: ${data?.id})`,
-    );
-    return true;
-  } catch (error) {
-    console.error("❌ Error sending ticket reply notification:", error.message);
-    return false;
-  }
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">New Reply on Your Support Ticket</h2>
+      <p>Hi ${userName}, there's a new reply on ticket <strong>#${ticketData.ticket_uuid}</strong>.</p>
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="background: white; padding: 10px; border-radius: 5px;">${replyMessage}</p>
+      </div>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${process.env.FRONTEND_URL}/my-tickets/${ticketData.ticket_id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
+      </div>
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    userEmail,
+    `New Reply on Support Ticket #${ticketData.ticket_uuid}`,
+    html,
+    "ticket reply",
+  );
 };
 
 export const sendTicketStatusNotification = async (
@@ -221,47 +158,25 @@ export const sendTicketStatusNotification = async (
   oldStatus,
   newStatus,
 ) => {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: [userEmail],
-      subject: `Support Ticket #${ticketData.ticket_uuid} Status Update`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">Ticket Status Updated</h2>
-          <p>Hi ${userName},</p>
-          <p>The status of your support ticket <strong>#${ticketData.ticket_uuid}</strong> has been updated.</p>
-          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Subject:</strong> ${ticketData.subject}</p>
-            <p><strong>Previous Status:</strong> ${oldStatus}</p>
-            <p><strong>New Status:</strong> <span style="color: ${newStatus === "resolved" ? "#10b981" : "#f59e0b"}; font-weight: bold;">${newStatus}</span></p>
-          </div>
-          ${newStatus === "resolved" ? "<p>Your ticket has been marked as resolved. If you have any further questions, feel free to reply to this ticket.</p>" : ""}
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${process.env.FRONTEND_URL}/my-tickets/${ticketData.ticket_id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
-          </div>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("❌ Resend API error (ticket status):", error);
-      return false;
-    }
-
-    console.log(
-      `✅ Ticket status notification sent to ${userEmail} (ID: ${data?.id})`,
-    );
-    return true;
-  } catch (error) {
-    console.error(
-      "❌ Error sending ticket status notification:",
-      error.message,
-    );
-    return false;
-  }
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">Ticket Status Updated</h2>
+      <p>Hi ${userName}, ticket <strong>#${ticketData.ticket_uuid}</strong> has been updated.</p>
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p><strong>Previous Status:</strong> ${oldStatus}</p>
+        <p><strong>New Status:</strong> ${newStatus}</p>
+      </div>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${process.env.FRONTEND_URL}/my-tickets/${ticketData.ticket_id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
+      </div>
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    userEmail,
+    `Support Ticket #${ticketData.ticket_uuid} Status Update`,
+    html,
+    "ticket status update",
+  );
 };
 
 export const sendTicketAssignedNotification = async (
@@ -269,45 +184,19 @@ export const sendTicketAssignedNotification = async (
   adminName,
   ticketData,
 ) => {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: getFromEmail(),
-      to: [adminEmail],
-      subject: `Ticket #${ticketData.ticket_uuid} Assigned to You`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #4e73df; text-align: center;">Ticket Assigned to You</h2>
-          <p>Hi ${adminName},</p>
-          <p>A support ticket has been assigned to you for handling.</p>
-          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Ticket ID:</strong> ${ticketData.ticket_uuid}</p>
-            <p><strong>From:</strong> ${ticketData.user_name}</p>
-            <p><strong>Subject:</strong> ${ticketData.subject}</p>
-            <p><strong>Priority:</strong> <span style="color: ${ticketData.priority === "urgent" ? "#ef4444" : "#f59e0b"}">${ticketData.priority}</span></p>
-          </div>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${process.env.FRONTEND_URL}/admin/help/${ticketData.ticket_id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
-          </div>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("❌ Resend API error (ticket assigned):", error);
-      return false;
-    }
-
-    console.log(
-      `✅ Ticket assigned notification sent to ${adminEmail} (ID: ${data?.id})`,
-    );
-    return true;
-  } catch (error) {
-    console.error(
-      "❌ Error sending ticket assigned notification:",
-      error.message,
-    );
-    return false;
-  }
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #4e73df; text-align: center;">Ticket Assigned to You</h2>
+      <p>Hi ${adminName}, you have been assigned to handle ticket <strong>#${ticketData.ticket_uuid}</strong>.</p>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${process.env.FRONTEND_URL}/admin/help/${ticketData.ticket_id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Ticket</a>
+      </div>
+      <p style="font-size: 12px; color: #999; text-align: center;">© 2024 Alalay Connect. All rights reserved.</p>
+    </div>`;
+  return await sendMailtrap(
+    adminEmail,
+    `Ticket #${ticketData.ticket_uuid} Assigned to You`,
+    html,
+    "ticket assigned",
+  );
 };
