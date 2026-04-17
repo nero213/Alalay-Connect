@@ -269,9 +269,7 @@ const resendVerification = async () => {
           {{ loading ? 'Logging in...' : 'Login' }}
         </button>
 
-        <div class="divider">
-          <span>or</span>
-        </div>
+    
 
         <div class="register-link">
           Don't have an account?
