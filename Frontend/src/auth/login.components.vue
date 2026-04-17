@@ -269,8 +269,6 @@ const resendVerification = async () => {
           {{ loading ? 'Logging in...' : 'Login' }}
         </button>
 
-    
-
         <div class="register-link">
           Don't have an account?
           <router-link to="/register">Sign up now</router-link>
