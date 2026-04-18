@@ -21,7 +21,7 @@
 
 > 📌 **Bachelor's Thesis — Computer Science**  
 > Virgen Milagrosa University Foundation, Inc. · Academic Year 2025–2026  
-> Deployed in **San Carlos City, Dagupan City, Calasiao & Bayambang, Pangasinan 🇵🇭**
+> Deployed in **The whole region of Pangasinan🇵🇭**
 
 <br/>
 
