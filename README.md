@@ -4,7 +4,7 @@
 
 <img src="https://img.shields.io/badge/-%F0%9F%A4%9D%20ALALAY%20CONNECT-1a1a2e?style=for-the-badge&logoColor=white" height="50"/>
 
-### Proximity-Based Platform for Hiring Skilled Workers
+### Proximity-Based Platform for Hiring local Skilled Workers
 
 *Connecting communities, one skilled hand at a time.*
 
