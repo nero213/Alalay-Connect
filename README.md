@@ -29,7 +29,7 @@
 
 ---
 
-## 📖 What is Alalay Connect?
+##  What is Alalay Connect?
 
 **Alalay Connect** is a web-based platform that bridges the gap between **clients** and **verified skilled workers** — carpenters, tutors, household helpers, and more — using **proximity-based matching** within a local network. Say goodbye to unreliable word-of-mouth referrals and scattered social media searches.
 
